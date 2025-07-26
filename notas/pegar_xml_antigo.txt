@@ -1,0 +1,234 @@
+import xml.etree.ElementTree as ET
+import psycopg2
+
+# Caminho do XML.
+xml_path = 'C:/Protocolos_ONR/protocolo123.xml'
+
+# Parse do XML.
+tree = ET.parse(xml_path)
+root = tree.getroot()
+
+contrato = root.find('CONTRATO')
+
+# Extração dos dados da tag CONTRATO.
+tipo_servico        = contrato.findtext('TIPOSERVICO') # Tipo do serviço solicitado 1-Registro/Averbação ou 2-Exame cálculo
+tipo_documento      = contrato.findtext('TIPODOCUMENTO')# 1 = ESCRITURA PUBLICA, 2 = INSTRUMENTO PARTICULAR, 4 = INSTRUMENTO PARTICULAR COM FORÇA DE ESCRITURA PÚBLICA, 5 = ORDEM JUDICIAL e ADMINISTRATIVAS, 6 = INSTRUMENTO PARTICULAR DE CANCELAMENTO DE GARANTIAS, 7 = REQUERIMENTO, 8 =TÍTULO DE CRÉDITO, 9 = PARCELAMENTO DO SOLO/LOTEAMENTO, 10 = INCORPORAÇÃO/ESPECIFICAÇÃO, 11 = RETIFICAÇÃO ADMINISTRATIVA, 12 = USUCAPIÃO EXTRAJUDICIAL E JUDICIAL, 13 = REURB, 14 = Cancelamento de Indisponibilidade, 15 = Constrição
+protocolo           = contrato.findtext('PROTOCOLO')# Protocolo do pedido = AC00000000C para Contrição e AC000000000 para os demais
+cartorio            = contrato.findtext('CARTORIO')
+data_remessa        = contrato.findtext('DATAREMESSA')
+livro               = contrato.findtext('LIVRO')
+folha               = contrato.findtext('FOLHA')
+data_lavratura      = contrato.findtext('DATALAVRATURA')
+nome_inst           = contrato.findtext('RAZAOINST')
+endereco_inst       = contrato.findtext('ENDINST')
+num_inst            = contrato.findtext('NRINST')
+complemento_inst    = contrato.findtext('COMPINST')
+bairro_inst         = contrato.findtext('BAIRROINST')
+cidade_inst         = contrato.findtext('CIDADEINST')
+uf_inst             = contrato.findtext('UFINST')
+cep_inst            = contrato.findtext('CEPINST')
+tel_inst            = contrato.findtext('TELINST')
+email_inst          = contrato.findtext('EMAILINST')
+cnpj_inst           = contrato.findtext('CNPJINST')
+nome_solic          = contrato.findtext('NOMESOLIC')
+email_solic         = contrato.findtext('EMAILSOLIC')
+tel_solic           = contrato.findtext('TELSOLIC')
+#Dados apresentante
+nome_apres          = contrato.findtext('NOMEAPRES')
+cpfcnpj_apres       = contrato.findtext('CPFCNPJAPRES')
+endereco_apres      = contrato.findtext('ENDAPRES')
+num_apres           = contrato.findtext('NRAPRES')
+complemento_apres   = contrato.findtext('COMPAPRES')
+bairro_apres        = contrato.findtext('BAIRROAPRES')
+cidade_apres        = contrato.findtext('CIDADEAPRES')
+uf_apres            = contrato.findtext('UFAPRES')
+cep_apres           = contrato.findtext('CEPAPRES')
+tel_apres           = contrato.findtext('TELAPRES')
+email_apres         = contrato.findtext('EMAILAPRES')
+
+matricula_imovel    = contrato.findtext('MATRICULAIMOVEL')
+endereco_imovel     = contrato.findtext('ENDIMOVEL')
+num_imovel          = contrato.findtext('NRIMOVEL')
+complemento_imovel  = contrato.findtext('COMPIMOVEL')
+bairro_imovel       = contrato.findtext('BAIRROIMOVEL')
+uf_imovel           = contrato.findtext('UFIMOVEL')
+cidade_imovel       = contrato.findtext('CIDADEIMOVEL')
+numero_prenot       = contrato.findtext('NUMEROPRENOTACAO')
+data_prenotacao     = contrato.findtext('DATAPRENOTACAO')
+data_venc_prenot    = contrato.findtext('DATAVENCPRENOTACAO')
+valor_servico       = contrato.findtext('VALORSERVICO')
+nome_data_aceite    = contrato.findtext('NOMEDATAACEITE')
+resposta            = contrato.findtext('RESPOSTA')
+data_resposta       = contrato.findtext('DATARESPOSTA')
+dados_contrato      = contrato.findtext('DADOSCONTRATO')
+tipo_cobranca       = contrato.findtext('TIPOCOBRANCA')
+certidao_int_teor   = contrato.findtext('CERTIDAOINTEIROTEOR')
+protocolo_origem    = contrato.findtext('PROTOCOLOORIGEM')
+
+# Extração dos dados da tag GRATUIDADE, se existir.
+gratuidade = contrato.find('GRATUIDADE')
+
+tipo_isencao = numero_processo = folhas_processo = data_gratuidade = fundamento_legal = url_arquivo_grat = None
+
+if gratuidade is not None:
+    tipo_isencao          = gratuidade.findtext('TIPOISENCAO')
+    numero_processo       = gratuidade.findtext('NPROCESSO')
+    folhas_processo       = gratuidade.findtext('FOLHASPROCESSO')
+    data_gratuidade       = gratuidade.findtext('DATAGRATUIDADE')
+    fundamento_legal      = gratuidade.findtext('FUNDAMENTOLEGAL')
+    url_arquivo_grat      = gratuidade.findtext('URLARQUIVOGRATUIDADE')
+
+# Armazena as partes em uma lista (lista_partes).
+partes = contrato.find('PARTES')
+
+lista_partes = [] 
+
+if partes is not None:
+    for parte in partes.findall('PARTE'):
+        nome       = parte.findtext('NOME')
+        cpf_cnpj   = parte.findtext('CPFCNPJ')
+        qualidade  = parte.findtext('QUALIDADE')
+
+        lista_partes.append({
+            'nome': nome,
+            'cpf_cnpj': cpf_cnpj,
+            'qualidade': qualidade
+        })
+
+# Dados da Constrição, se existir.
+dados_constricao = contrato.find('DADOSCONSTRICAO')
+
+if dados_constricao is not None:
+    tipo_constricao = dados_constricao.findtext('TIPOCONSTRICAO')
+
+    processo = dados_constricao.find('PROCESSO')
+    if processo is not None:
+        estado                = processo.findtext('ESTADO')
+        comarca               = processo.findtext('COMARCA')
+        foro                  = processo.findtext('FORO')
+        usuario               = processo.findtext('USUARIO')
+        vara                  = processo.findtext('VARA')
+        numero_processo       = processo.findtext('NUMERODOPROCESSO')
+        natureza_execucao     = processo.findtext('NATUREZADOEXECUCAO')
+        valor_divida          = processo.findtext('VALORSERVICO')
+        data_auto_termo       = processo.findtext('DATAAUTOTERMO')
+        url_constricao        = processo.findtext('URLCONSTRICAO')
+
+    imoveis = dados_constricao.find('IMOVEIS')
+    lista_imoveis = []
+
+    if imoveis is not None:
+        for imovel in imoveis.findall('IMOVEL'):
+            cns                    = imovel.findtext('CNS')
+            matricula              = imovel.findtext('MATRICULA')
+            cep                    = imovel.findtext('CEP')
+            endereco               = imovel.findtext('ENDERECO')
+            municipio              = imovel.findtext('MUNICIPIO')
+            bairro                 = imovel.findtext('BAIRRO')
+            percentual_constricao  = imovel.findtext('PERCENTUALCONSTRICAO')
+            percentual_executado   = imovel.findtext('PERCENTUALDOEXECUTADO')
+            data_decisao           = imovel.findtext('DATADECISAO')
+            folhas_decisao         = imovel.findtext('FOLHAS')
+            depositario            = imovel.findtext('DEPOSITARIO')
+
+            proprietario = imovel.find('PROPRIETARIO')
+            nome_proprietario     = proprietario.findtext('NOME') if proprietario is not None else None
+            cpfcnpj_proprietario  = proprietario.findtext('CPFCNPJ') if proprietario is not None else None
+            polopassivo           = proprietario.findtext('POLOPASSIVO') if proprietario is not None else None
+
+            lista_imoveis.append({
+                'cns': cns,
+                'matricula': matricula,
+                'cep': cep,
+                'endereco': endereco,
+                'municipio': municipio,
+                'bairro': bairro,
+                'percentual_constricao': percentual_constricao,
+                'percentual_executado': percentual_executado,
+                'data_decisao': data_decisao,
+                'folhas_decisao': folhas_decisao,
+                'depositario': depositario,
+                'nome_proprietario': nome_proprietario,
+                'cpfcnpj_proprietario': cpfcnpj_proprietario,
+                'polopassivo': polopassivo
+            })
+
+# Conexão com o banco.
+conn = psycopg2.connect(
+    host="localhost",
+    database="cartorio",
+    user="postgres",
+    password="m123"
+)
+cur = conn.cursor()
+
+# Inserção dos dados principais do contrato.
+cur.execute("""
+    INSERT INTO contratos (
+        tipo_servico, tipo_documento, protocolo, cartorio, data_remessa,
+        livro, folha, data_lavratura, nome_inst, endereco_inst,
+        num_inst, complemento_inst, bairro_inst, cidade_inst, uf_inst,
+        cep_inst, tel_inst, email_inst, cnpj_inst,
+        nome_solic, email_solic, tel_solic,
+        nome_apres, cpfcnpj_apres, endereco_apres, num_apres,
+        complemento_apres, bairro_apres, cidade_apres, uf_apres,
+        cep_apres, tel_apres, email_apres, matricula_imovel,
+        endereco_imovel, num_imovel, complemento_imovel, bairro_imovel,
+        uf_imovel, cidade_imovel, numero_prenot, data_prenotacao,
+        data_venc_prenot, valor_servico, nome_data_aceite, resposta,
+        data_resposta, dados_contrato, tipo_cobranca, certidao_int_teor,
+        protocolo_origem
+    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+              %s, %s, %s, %s, %s, %s, %s, %s, %s,
+              %s, %s, %s, %s, %s, %s, %s,
+              %s, %s, %s, %s,
+              %s, %s, %s, %s,
+              %s, %s, %s, %s,
+              %s, %s, %s, %s,
+              %s, %s, %s, %s,
+              %s, %s, %s, %s)
+""", (
+    tipo_servico, tipo_documento, protocolo, cartorio, data_remessa,
+    livro, folha, data_lavratura, nome_inst, endereco_inst,
+    num_inst, complemento_inst, bairro_inst, cidade_inst, uf_inst,
+    cep_inst, tel_inst, email_inst, cnpj_inst,
+    nome_solic, email_solic, tel_solic,
+    nome_apres, cpfcnpj_apres, endereco_apres, num_apres,
+    complemento_apres, bairro_apres, cidade_apres, uf_apres,
+    cep_apres, tel_apres, email_apres, matricula_imovel,
+    endereco_imovel, num_imovel, complemento_imovel, bairro_imovel,
+    uf_imovel, cidade_imovel, numero_prenot, data_prenotacao,
+    data_venc_prenot, valor_servico, nome_data_aceite, resposta,
+    data_resposta, dados_contrato, tipo_cobranca, certidao_int_teor,
+    protocolo_origem
+))
+
+# Inserção das partes.
+for parte in lista_partes:
+    cur.execute("""
+        INSERT INTO partes (protocolo, nome, cpf_cnpj, qualidade)
+        VALUES (%s, %s, %s, %s)
+    """, (protocolo, parte['nome'], parte['cpf_cnpj'], parte['qualidade']))
+
+# Inserção dos imóveis com constrição.
+for imovel in lista_imoveis:
+    cur.execute("""
+        INSERT INTO imoveis_constricao (
+            protocolo, cns, matricula, cep, endereco, municipio, bairro,
+            percentual_constricao, percentual_executado, data_decisao,
+            folhas_decisao, depositario, nome_proprietario, cpfcnpj_proprietario,
+            polopassivo
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s,
+                  %s, %s, %s, %s, %s, %s, %s, %s)
+    """, (
+        protocolo, imovel['cns'], imovel['matricula'], imovel['cep'], imovel['endereco'],
+        imovel['municipio'], imovel['bairro'], imovel['percentual_constricao'],
+        imovel['percentual_executado'], imovel['data_decisao'], imovel['folhas_decisao'],
+        imovel['depositario'], imovel['nome_proprietario'], imovel['cpfcnpj_proprietario'],
+        imovel['polopassivo']
+    ))    
+
+# Commit das operações
+conn.commit()
+cur.close()
+conn.close()

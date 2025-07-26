@@ -1,0 +1,118 @@
+import xml.etree.ElementTree as ET
+import psycopg2
+from datetime import datetime
+
+
+# Caminho do XML.
+xml_path = 'C:/Protocolos_ONR/protocolo123.xml'
+
+# Parse do XML.
+tree = ET.parse(xml_path)
+root = tree.getroot()
+
+contrato = root.find('CONTRATO')
+
+# Extração dos dados da tag CONTRATO.
+tipo_servico        = contrato.findtext('TIPOSERVICO') # Tipo do serviço solicitado 1-Registro/Averbação ou 2-Exame cálculo
+tipo_documento      = contrato.findtext('TIPODOCUMENTO')# 1 = ESCRITURA PUBLICA, 2 = INSTRUMENTO PARTICULAR, 4 = INSTRUMENTO PARTICULAR COM FORÇA DE ESCRITURA PÚBLICA, 5 = ORDEM JUDICIAL e ADMINISTRATIVAS, 6 = INSTRUMENTO PARTICULAR DE CANCELAMENTO DE GARANTIAS, 7 = REQUERIMENTO, 8 =TÍTULO DE CRÉDITO, 9 = PARCELAMENTO DO SOLO/LOTEAMENTO, 10 = INCORPORAÇÃO/ESPECIFICAÇÃO, 11 = RETIFICAÇÃO ADMINISTRATIVA, 12 = USUCAPIÃO EXTRAJUDICIAL E JUDICIAL, 13 = REURB, 14 = Cancelamento de Indisponibilidade, 15 = Constrição
+protocolo           = contrato.findtext('PROTOCOLO')# Protocolo do pedido = AC00000000C para Contrição e AC000000000 para os demais
+cartorio            = contrato.findtext('CARTORIO')
+data_remessa        = contrato.findtext('DATAREMESSA')
+livro               = contrato.findtext('LIVRO')
+folha               = contrato.findtext('FOLHA')
+data_lavratura      = contrato.findtext('DATALAVRATURA')
+nome_inst           = contrato.findtext('RAZAOINST')
+tel_inst            = contrato.findtext('TELINST')
+email_inst          = contrato.findtext('EMAILINST')
+cnpj_inst           = contrato.findtext('CNPJINST')
+nome_solic          = contrato.findtext('NOMESOLIC')
+tel_solic           = contrato.findtext('TELSOLIC')
+numero_prenot       = contrato.findtext('NUMEROPRENOTACAO')  #numero protocolo
+data_prenotacao     = contrato.findtext('DATAPRENOTACAO')
+data_venc_prenot    = contrato.findtext('DATAVENCPRENOTACAO')
+valor_servico       = contrato.findtext('VALORSERVICO')
+nome_data_aceite    = contrato.findtext('NOMEDATAACEITE')
+resposta            = contrato.findtext('RESPOSTA')
+data_resposta       = contrato.findtext('DATARESPOSTA')
+dados_contrato      = contrato.findtext('DADOSCONTRATO')
+tipo_cobranca       = contrato.findtext('TIPOCOBRANCA')
+certidao_int_teor   = contrato.findtext('CERTIDAOINTEIROTEOR')
+protocolo_origem    = contrato.findtext('PROTOCOLOORIGEM')
+
+# Recebe as partes, divide entre outorgante e outorgado e guarda o primeiro de cada.
+partes = contrato.find('PARTES')
+
+nome_outorgante = None
+doc_outorgante = None
+nome_outorgado = None
+doc_outorgado = None
+
+if partes is not None:
+    for parte in partes.findall('PARTE'):
+        qualidade = parte.findtext('QUALIDADE', '').strip().upper()
+        nome = parte.findtext('NOME')
+        cpf_cnpj = parte.findtext('CPFCNPJ')
+
+        if ('TRANSMITENTE' in qualidade or 'OUTORGANTE' in qualidade) and nome_outorgante is None:
+            nome_outorgante = nome
+            doc_outorgante = cpf_cnpj
+
+        elif ('ADQUIRENTE' in qualidade or 'OUTORGADO' in qualidade) and nome_outorgado is None:
+            nome_outorgado = nome
+            doc_outorgado = cpf_cnpj
+
+        if nome_outorgante and nome_outorgado:
+            break
+
+# Conexão com o banco.
+conn = psycopg2.connect(
+    host="localhost",
+    database="cartorio",
+    user="postgres",
+    password="m123"
+)
+cur = conn.cursor()
+
+# Inserção dos dados.
+titulo = f"REGISTRO\n{protocolo}"
+
+cur.execute("""
+    INSERT INTO registre.entradas (
+        titulo,  
+        numero_protocolo
+        natureza_titulo,
+        partes,
+        telefone,
+        nome_outorgante,
+        doc_outorgante,
+        nome_outorgado,
+        doc_outorgado,
+        livro_escritura,
+        folha_escritura,
+        tipo_entrada,
+        momento_cadastro,
+        assunto,
+        onr
+    ) VALUES (
+         %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'REGISTRO', %s, 'DOCUMENTO EM ANEXO', %s
+    )
+""", (
+    protocolo,
+    numero_prenot,
+    tipo_documento,
+    nome_solic,
+    tel_solic,
+    nome_outorgante,
+    doc_outorgante,
+    nome_outorgado,
+    doc_outorgado,
+    livro,
+    folha,
+    datetime.today().date(),
+    'SIM'
+))
+
+# Commit das operações.
+conn.commit()
+cur.close()
+conn.close()

@@ -1,0 +1,47 @@
+# Banco de dados do Cartório.
+import sqlite3
+
+def inicializar_banco_cartorio():
+    conn = sqlite3.connect("cartorio.db")
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS pedidos (
+            id_pedido INTEGER PRIMARY KEY,
+            protocolo TEXT,
+            tipo_servico INTEGER,
+            status INTEGER,
+            data_solicitacao TEXT,
+            solicitante_nome TEXT,
+            solicitante_cpf_cnpj TEXT,
+            observacao TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+
+def salvar_pedido(detalhes):
+    conn = sqlite3.connect("cartorio.db")
+    cursor = conn.cursor()
+
+    dados = (
+        detalhes.IDPedido,
+        detalhes.Protocolo,
+        detalhes.IDTipoServico,
+        detalhes.IDStatus,
+        detalhes.DataSolicitacao,
+        getattr(detalhes.Solicitante, "Nome", None),
+        getattr(detalhes.Solicitante, "CPF_CNPJ", None),
+        detalhes.Observacao
+    )
+
+    cursor.execute("""
+        INSERT OR IGNORE INTO pedidos (
+            id_pedido, protocolo, tipo_servico, status,
+            data_solicitacao, solicitante_nome, solicitante_cpf_cnpj, observacao
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, dados)
+
+    conn.commit()
+    conn.close()

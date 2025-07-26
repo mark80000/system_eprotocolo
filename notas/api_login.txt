@@ -1,0 +1,16 @@
+from zeep import Client
+
+WSDL_LOGIN = ' https://hml3-wsoficio.onr.org.br/login.asmx?wsdl' 
+USUARIO = 'cartorio123'
+SENHA = 'senhaSegura!'
+
+# Cria cliente SOAP para login.
+login_client = Client(WSDL_LOGIN)
+
+# === Chama o método de login ===
+resposta_login = login_client.service.Login(USUARIO, SENHA)
+
+# === Lista de tokens retornados ===
+tokens = resposta_login.tokens  # lista com strings como ['JGX3QL', 'LGO8A7', ...]
+
+print("Tokens disponíveis:", tokens)
