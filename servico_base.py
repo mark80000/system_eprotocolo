@@ -6,7 +6,7 @@ from requests import Session
 from tokens_db import CHAVE, obter_token_valido, gerar_hash, marcar_token_como_usado, salvar_tokens
 from login import obter_dados_certificado, chamar_login
 
-ID_PARCEIRO_WS = 1234  # Substitua pela sua ID real
+ID_PARCEIRO_WS = 2507  #ID FORNECIDO PELA ONR.  
 
 
 def obter_token_ou_fazer_login():
