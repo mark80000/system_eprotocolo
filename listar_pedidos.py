@@ -21,7 +21,7 @@ def listar_pedidos_em_aberto():
     return resposta
 
 
-# Execução de teste direta
+# Execução de teste direta.
 if __name__ == "__main__":
     try:
         resposta = listar_pedidos_em_aberto()

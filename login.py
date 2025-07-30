@@ -1,4 +1,4 @@
-# Chamada da função para Login, responsável por solicitar Tokens mandando dados do Certificado Digital e ID como parâmetros de entrada.
+# Chamada da função para Login, responsável por solicitar Tokens, mandando dados do Certificado Digital e ID como parâmetros de entrada.
 
 import ctypes
 from ctypes import wintypes
@@ -12,7 +12,7 @@ from zeep.transports import Transport
 from requests import Session
 from tokens_db import inicializar_banco, salvar_tokens
 
-# Função para extrair dados do certificado.
+# Função para extrair dados do certificado digital A3.
 def obter_dados_certificado():
     crypt32 = ctypes.WinDLL('crypt32.dll')
 
@@ -114,9 +114,9 @@ def chamar_login(cert_data, id_parceiro):
 # Execução principal.
 if __name__ == "__main__":
     try:
-        from tokens_db import inicializar_banco, salvar_tokens  # importante importar funções
+        from tokens_db import inicializar_banco, salvar_tokens 
 
-        id_parceiro_ws = 2507  # ID FORNECIDO PELA ONR.
+        id_parceiro_ws = 5  # ID FORNECIDO PELA ONR.
 
         print("Inicializando banco de dados de tokens...")
         inicializar_banco()

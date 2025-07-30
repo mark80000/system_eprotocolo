@@ -1,6 +1,6 @@
 from zeep import Client
 
-WSDL_LOGIN = ' https://hml3-wsoficio.onr.org.br/login.asmx?wsdl' 
+WSDL_LOGIN = 'https://hml3-wsoficio.onr.org.br/login.asmx?wsdl' 
 USUARIO = 'cartorio123'
 SENHA = 'senhaSegura!'
 

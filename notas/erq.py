@@ -12,7 +12,7 @@ request_data = Login_WSReq(
     VALIDUNTIL="2028-04-23T18:33:15+00:00",
     CPF="13778462458",
     EMAIL="marcusviniandrade0@gmail.com",
-    IDParceiroWS=2507
+    IDParceiroWS=5
 )
 
 # Chamada correta ao serviço
