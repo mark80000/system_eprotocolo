@@ -2,18 +2,18 @@
 
 from servico_base import executar_servico
 
-def listar_pedidos_em_aberto():
-    wsdl = "https://origin-hml3-wsoficio.onr.org.br/Pedido.asmx?wsdl"
+def listar_pedidos():
+    wsdl = "https://origin-hml3-wsoficio.onr.org.br/eprotocolo.asmx?wsdl"
 
     parametros = {
-        "MaxRowPerPage": 50,
+        "MaxRowPerPage": 300,
         "PageNumber": 1,
         "Protocolo": "",
         "Instituicao": "",
         "IDTipoServico": -1,
         "IDStatus": 1,  # 1 = Em aberto
-        "DataSolicitacaoInicial": "",
-        "DataSolicitacaoFinal": "",
+        "DataSolicitacaoInicial": "2025-07-01",
+        "DataSolicitacaoFinal": "2025-08-01",
         "NumeroBanco": -1
     }
 
@@ -24,7 +24,9 @@ def listar_pedidos_em_aberto():
 # Execução de teste direta.
 if __name__ == "__main__":
     try:
-        resposta = listar_pedidos_em_aberto()
+        resposta = listar_pedidos()
         print(resposta)
+        with open("lista.txt", "w", encoding="utf-8") as f:
+            f.write(str(resposta))
     except Exception as e:
         print("Erro ao listar pedidos em aberto:", e)

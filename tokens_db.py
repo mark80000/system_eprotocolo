@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 
 DB_NAME = "onr_tokens.db"
-CHAVE = "SUA_CHAVE_AQUI"  # SUBSTIRUIR PELA CHAVE FORNECIDA PELA ONR
+CHAVE = "3BE1BF10-6792-4563-9ED7-9C2DA455F233"  # SUBSTIRUIR PELA CHAVE FORNECIDA PELA ONR
 
 
 def inicializar_banco():

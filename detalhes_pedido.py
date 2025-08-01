@@ -2,11 +2,11 @@
 
 from servico_base import executar_servico
 
-def get_pedido_ac_v7(id_pedido: int):
-    wsdl = "https://origin-hml3-wsoficio.onr.org.br/Pedido.asmx?wsdl"
+def get_pedido_ac_v7(id_contrato: int):
+    wsdl = "https://origin-hml3-wsoficio.onr.org.br/eprotocolo.asmx?wsdl"
 
     parametros = {
-        "IDPedido": id_pedido
+        "IDContrato": id_contrato
     }
 
     resposta = executar_servico(wsdl, "GetPedidoAC_V7", parametros)
@@ -16,8 +16,8 @@ def get_pedido_ac_v7(id_pedido: int):
 # Teste simples
 if __name__ == "__main__":
     try:
-        pedido_id = 123456  # Substituir pelo ID real de algum pedido
-        resultado = get_pedido_ac_v7(pedido_id)
+        contrato_id = 2483636  
+        resultado = get_pedido_ac_v7(contrato_id)
         print(resultado)
     except Exception as e:
         print("Erro ao consultar pedido:", e)

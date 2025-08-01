@@ -1,8 +1,9 @@
 # Puxa detalhes/informações dos pedidos em aberto a partir de ListPedidosAC e GetPedidoAC_V7.
 
 import sqlite3
-from listar_pedidos import listar_pedidos_em_aberto
+from listar_pedidos import listar_pedidos
 from detalhes_pedido import get_pedido_ac_v7
+from zeep.helpers import serialize_object
 
 DB_PATH = "pedidos_onr.db"
 
@@ -67,16 +68,14 @@ def criar_tabela_se_nao_existir():
     conn.commit()
     conn.close()
 
-
-def salvar_detalhes_pedido(detalhes):
+def salvar_detalhes_pedido(d):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
-    d = detalhes  # atalho
-
-    apresentante = d.DadosApresentante or {}
-    dados_constricao = d.DadosConstricao or {}
-    dados_aceite = d.DadosAceite or {}
+    # Serializa objetos complexos
+    apresentante = serialize_object(d.DadosApresentante) if d.DadosApresentante else {}
+    dados_constricao = serialize_object(d.DadosConstricao) if d.DadosConstricao else {}
+    dados_aceite = serialize_object(d.DadosAceite) if d.DadosAceite else {}
 
     c.execute("""
         INSERT OR REPLACE INTO pedidos_onr (
@@ -119,42 +118,57 @@ def salvar_detalhes_pedido(detalhes):
     conn.commit()
     conn.close()
 
+def get_detalhes_pedidos_listados(pedidos):
+    detalhes_pedidos = []
 
-def sincronizar_pedidos_em_aberto():
+    for pedido in pedidos:
+        id_contrato = pedido.IDContrato
+        print(f"\nConsultando detalhes do contrato ID {id_contrato}...")
+
+        try:
+            detalhes = get_pedido_ac_v7(id_contrato)
+            if detalhes.RETORNO:
+                detalhes_pedidos.append(detalhes)
+            else:
+                print(f"Erro no contrato {id_contrato}: {detalhes.ERRODESCRICAO}")
+        except Exception as e:
+            print(f"Falha ao obter detalhes do contrato {id_contrato}: {e}")
+
+    return detalhes_pedidos
+
+def sincronizar_pedidos():
     try:
         criar_tabela_se_nao_existir()
 
-        resposta_lista = listar_pedidos_em_aberto()
+        resposta_lista = listar_pedidos()
 
         if not resposta_lista.RETORNO or not resposta_lista.Pedidos:
             print("Nenhum pedido em aberto encontrado.")
             return
 
-        pedidos = resposta_lista.Pedidos.PedidoAC
-
+        pedidos = resposta_lista.Pedidos.ListPedidosAC_Pedidos_WSResp
         if not isinstance(pedidos, list):
             pedidos = [pedidos]
 
         print(f"{len(pedidos)} pedidos encontrados.")
+        for p in pedidos:
+            print(f"IDContrato: {p.IDContrato}, Protocolo: {p.Protocolo}")
 
-        for pedido in pedidos:
-            id_pedido = pedido.IDPedido
-            print(f"\nConsultando detalhes do pedido ID {id_pedido}...")
+        detalhes_lista = get_detalhes_pedidos_listados(pedidos)
 
-            detalhes = get_pedido_ac_v7(id_pedido)
+        with open("detalhes.txt", "w", encoding="utf-8") as f:
+            for detalhes in detalhes_lista:
+                f.write(str(serialize_object(detalhes)) + "\n\n")
 
-            if detalhes.RETORNO:
-                try:
-                    salvar_detalhes_pedido(detalhes)
-                    print(f"Pedido {id_pedido} salvo com sucesso.")
-                except Exception as e:
-                    print(f"Erro ao salvar pedido {id_pedido}: {e}")
-            else:
-                print(f"Erro ao buscar detalhes do pedido {id_pedido}: {detalhes.ERRODESCRICAO}")
+        for detalhes in detalhes_lista:
+            try:
+                salvar_detalhes_pedido(detalhes)
+                print(f"Contrato {detalhes.IDContrato} salvo com sucesso.")
+            except Exception as e:
+                print(f"Erro ao salvar contrato {detalhes.IDContrato}: {e}")
 
     except Exception as e:
         print("Erro geral na sincronização:", e)
 
-
 if __name__ == "__main__":
-    sincronizar_pedidos_em_aberto()
+    sincronizar_pedidos()
