@@ -13,13 +13,12 @@ def listar_pedidos():
         "IDTipoServico": -1,
         "IDStatus": 1,  # 1 = Em aberto
         "DataSolicitacaoInicial": "2025-07-01",
-        "DataSolicitacaoFinal": "2025-08-01",
+        "DataSolicitacaoFinal": "2025-08-04",
         "NumeroBanco": -1
     }
 
     resposta = executar_servico(wsdl_url=wsdl, nome_metodo="ListPedidosAC", parametros=parametros)
     return resposta
-
 
 # Teste execução direta.
 if __name__ == "__main__":

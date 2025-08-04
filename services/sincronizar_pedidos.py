@@ -1,6 +1,7 @@
 # Puxa detalhes/informações dos pedidos em aberto a partir de ListPedidosAC e GetPedidoAC_V7.
 import os
 import sqlite3
+import json
 from services.listar_pedidos import listar_pedidos
 from services.detalhes_pedido import get_pedido_ac_v7
 from zeep.helpers import serialize_object
@@ -70,7 +71,11 @@ def criar_tabela_se_nao_existir():
             NaturezaProcessoConstricao TEXT,
             ValorDividaConstricao REAL,
             DataAutoTermoConstricao TEXT,
-            UrlArquivoMandado TEXT
+            UrlArquivoMandado TEXT,
+            NomeComprador TEXT,
+            CPFCNPJComprador TEXT,
+            NomeVendedor TEXT,
+            CPFCNPJVendedor TEXT
         )
     """)
     conn.commit()
@@ -169,7 +174,8 @@ def sincronizar_pedidos():
 
         with open("detalhes.txt", "w", encoding="utf-8") as f:
             for detalhes in detalhes_lista:
-                f.write(str(serialize_object(detalhes)) + "\n\n")
+                json_string = json.dumps(serialize_object(detalhes), indent=4, ensure_ascii=False, default=str)
+                f.write(json_string + "\n" + ("=" * 80) + "\n\n")
 
         for detalhes in detalhes_lista:
             try:

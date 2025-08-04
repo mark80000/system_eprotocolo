@@ -3,6 +3,7 @@
 # Ignorar banco de dados local
 *.db
 database/onr_tokens.db
+database/pedidos_onr.db
 __pycache__/
 *.pyc
 

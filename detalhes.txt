@@ -1,0 +1,244 @@
+{
+    "RETORNO": true,
+    "CODIGOERRO": 0,
+    "ERRODESCRICAO": null,
+    "IDContrato": 3454623,
+    "Protocolo": "AC003454623",
+    "IDStatus": 1,
+    "IDCartorio": 2492,
+    "DataRemessa": "2025-07-21 17:11:46",
+    "Solicitante": "Leticia de Sousa Lopes",
+    "Telefone": null,
+    "Instituicao": "TESTE INSTITUIÇÃO - QA",
+    "Email": "ldsl.leticia@gmail.com",
+    "TipoDocumento": "Escritura Pública",
+    "TipoServico": "Registro / Averbação",
+    "ImportacaoExtratoXML": false,
+    "DadosApresentante": {
+        "Nome": "Marcos Leandro",
+        "CPFCNPJ": "344.740.226-10",
+        "Email": "daniel.lima@onr.org.br",
+        "Via": "Avenida",
+        "Endereco": "Avenida Paulista",
+        "Numero": "1776",
+        "Complemento": "15 andar",
+        "Bairro": "Bela Vista",
+        "Cidade": "Sao Paulo",
+        "Estado": "SP",
+        "CEP": "01310921  ",
+        "DDD": "11 ",
+        "Telefone": "991220880"
+    },
+    "PrenotacaoNumero": null,
+    "PrenotacaoSenha": null,
+    "PrenotacaoDataInclusao": "0001-01-01 00:00:00",
+    "PrenotacaoDataVencimento": "0001-01-01 00:00:00",
+    "PrenotacaoDataReenvio": null,
+    "ValorServico": "0.0000",
+    "DataResposta": "0001-01-01 00:00:00",
+    "Resposta": null,
+    "DadosAceite": null,
+    "TipoCobranca": 1,
+    "CertidaoInteiroTeor": 0,
+    "TipoIsencao": 0,
+    "NrProcesso": null,
+    "FolhasProcesso": null,
+    "DataGratuidade": null,
+    "FundamentoLegal": null,
+    "UrlArquivoGratuidade": null,
+    "ProtocoloOrigem": null,
+    "DadosImovel": {
+        "GetPedidoAC_Imovel_WSResp": [
+            {
+                "Matricula": null,
+                "Via": null,
+                "Endereco": null,
+                "Numero": null,
+                "Complemento": null,
+                "Bairro": null,
+                "Cidade": null,
+                "Estado": "  "
+            }
+        ]
+    },
+    "Partes": {
+        "GetPedidoAC_DadosParte_WSResp": [
+            {
+                "Nome": "João Silva",
+                "CPFCNPJ": "52433416060",
+                "Qualidade": "Comprador"
+            },
+            {
+                "Nome": "João Silva",
+                "CPFCNPJ": "52433416060",
+                "Qualidade": "Vendedor"
+            }
+        ]
+    },
+    "DadosConstricao": {
+        "TipoConstricao": null,
+        "NumeroProcesso": null,
+        "Vara": null,
+        "Usuario": null,
+        "NaturezaProcesso": null,
+        "ValorDivida": "0",
+        "DataAutoTermo": "0001-01-01 00:00:00"
+    },
+    "UrlArquivoMandado": "https://hml3-registradores.onr.org.br/Downloads/DownloadAnexosContratos.aspx?tp=1&p=AC003454623&c=1EFCADEB-410D-4544-AA1D-4473D31826D9"
+}
+================================================================================
+
+{
+    "RETORNO": true,
+    "CODIGOERRO": 0,
+    "ERRODESCRICAO": null,
+    "IDContrato": 3459301,
+    "Protocolo": "AC003459301",
+    "IDStatus": 1,
+    "IDCartorio": 2492,
+    "DataRemessa": "2025-07-31 10:09:36",
+    "Solicitante": "JOAO PAULO SILVA MACHADO",
+    "Telefone": "1199999999",
+    "Instituicao": null,
+    "Email": "jpmachado.app@gmail.com",
+    "TipoDocumento": "Instrumento Particular",
+    "TipoServico": "Registro / Averbação",
+    "ImportacaoExtratoXML": false,
+    "DadosApresentante": {
+        "Nome": "JOAO PAULO SILVA MACHADO",
+        "CPFCNPJ": "28924128892",
+        "Email": "jpmachado.app@gmail.com",
+        "Via": "Rua",
+        "Endereco": "do Exemplo",
+        "Numero": null,
+        "Complemento": null,
+        "Bairro": "JD. ALVORADA",
+        "Cidade": "Teste",
+        "Estado": "SP",
+        "CEP": "44444555  ",
+        "DDD": "11 ",
+        "Telefone": "9999999999"
+    },
+    "PrenotacaoNumero": null,
+    "PrenotacaoSenha": null,
+    "PrenotacaoDataInclusao": "0001-01-01 00:00:00",
+    "PrenotacaoDataVencimento": "0001-01-01 00:00:00",
+    "PrenotacaoDataReenvio": null,
+    "ValorServico": "0.0000",
+    "DataResposta": "0001-01-01 00:00:00",
+    "Resposta": null,
+    "DadosAceite": null,
+    "TipoCobranca": 1,
+    "CertidaoInteiroTeor": 1,
+    "TipoIsencao": 0,
+    "NrProcesso": null,
+    "FolhasProcesso": null,
+    "DataGratuidade": null,
+    "FundamentoLegal": null,
+    "UrlArquivoGratuidade": null,
+    "ProtocoloOrigem": null,
+    "DadosImovel": {
+        "GetPedidoAC_Imovel_WSResp": [
+            {
+                "Matricula": null,
+                "Via": null,
+                "Endereco": null,
+                "Numero": null,
+                "Complemento": null,
+                "Bairro": null,
+                "Cidade": null,
+                "Estado": "  "
+            }
+        ]
+    },
+    "Partes": null,
+    "DadosConstricao": {
+        "TipoConstricao": null,
+        "NumeroProcesso": null,
+        "Vara": null,
+        "Usuario": null,
+        "NaturezaProcesso": null,
+        "ValorDivida": "0",
+        "DataAutoTermo": "0001-01-01 00:00:00"
+    },
+    "UrlArquivoMandado": "https://hml3-registradores.onr.org.br/Downloads/DownloadAnexosContratos.aspx?tp=1&p=AC003459301&c=0D9250CA-3EA1-48BC-82E0-0F6B0B7050A7"
+}
+================================================================================
+
+{
+    "RETORNO": true,
+    "CODIGOERRO": 0,
+    "ERRODESCRICAO": null,
+    "IDContrato": 3460067,
+    "Protocolo": "AC003460067",
+    "IDStatus": 1,
+    "IDCartorio": 2492,
+    "DataRemessa": "2025-08-04 09:59:37",
+    "Solicitante": "Joao Paulo Silva Machado",
+    "Telefone": null,
+    "Instituicao": "INSTITUIÇÃO TESTE JP",
+    "Email": "joao.silva@onr.org.br",
+    "TipoDocumento": "Instrumento Particular com Força de Escritura Pública",
+    "TipoServico": "Registro / Averbação",
+    "ImportacaoExtratoXML": true,
+    "DadosApresentante": {
+        "Nome": null,
+        "CPFCNPJ": null,
+        "Email": null,
+        "Via": "Rua",
+        "Endereco": null,
+        "Numero": "300420234",
+        "Complemento": null,
+        "Bairro": null,
+        "Cidade": null,
+        "Estado": "SP",
+        "CEP": "          ",
+        "DDD": "   ",
+        "Telefone": null
+    },
+    "PrenotacaoNumero": null,
+    "PrenotacaoSenha": null,
+    "PrenotacaoDataInclusao": "0001-01-01 00:00:00",
+    "PrenotacaoDataVencimento": "0001-01-01 00:00:00",
+    "PrenotacaoDataReenvio": null,
+    "ValorServico": "0.0000",
+    "DataResposta": "0001-01-01 00:00:00",
+    "Resposta": null,
+    "DadosAceite": null,
+    "TipoCobranca": 1,
+    "CertidaoInteiroTeor": 1,
+    "TipoIsencao": 0,
+    "NrProcesso": null,
+    "FolhasProcesso": null,
+    "DataGratuidade": null,
+    "FundamentoLegal": null,
+    "UrlArquivoGratuidade": null,
+    "ProtocoloOrigem": null,
+    "DadosImovel": {
+        "GetPedidoAC_Imovel_WSResp": [
+            {
+                "Matricula": null,
+                "Via": null,
+                "Endereco": null,
+                "Numero": null,
+                "Complemento": null,
+                "Bairro": null,
+                "Cidade": null,
+                "Estado": "  "
+            }
+        ]
+    },
+    "Partes": null,
+    "DadosConstricao": {
+        "TipoConstricao": null,
+        "NumeroProcesso": null,
+        "Vara": null,
+        "Usuario": null,
+        "NaturezaProcesso": null,
+        "ValorDivida": "0",
+        "DataAutoTermo": "0001-01-01 00:00:00"
+    },
+    "UrlArquivoMandado": "https://hml3-registradores.onr.org.br/Downloads/DownloadAnexosContratos.aspx?tp=1&p=AC003460067&c=C6945069-8793-4330-961F-4DBA49D2BCA1"
+}
+================================================================================
+
