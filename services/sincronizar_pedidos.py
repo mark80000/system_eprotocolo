@@ -91,6 +91,15 @@ def salvar_detalhes_pedido(d):
     dados_constricao = serialize_object(d.DadosConstricao) if d.DadosConstricao else {}
     dados_aceite = serialize_object(d.DadosAceite) if d.DadosAceite else {}
 
+    partes = serialize_object(d.Partes) if d.Partes else {}
+    comprador = vendedor = {}
+
+    for parte in partes.get("GetPedidoAC_DadosParte_WSResp", []):
+        if parte.get("Qualidade") == "Comprador":
+            comprador = parte
+        elif parte.get("Qualidade") == "Vendedor":
+            vendedor = parte
+
     c.execute("""
         INSERT OR REPLACE INTO pedidos_onr (
             IDContrato, Protocolo, IDStatus, IDCartorio, DataRemessa, Solicitante, Telefone, Instituicao,
@@ -105,9 +114,9 @@ def salvar_detalhes_pedido(d):
             DataGratuidade, FundamentoLegal, UrlArquivoGratuidade, ProtocoloOrigem,
             TipoConstricao, ProcessoConstricao, VaraConstricao, UsuarioConstricao,
             NumeroProcessoConstricao, NaturezaProcessoConstricao, ValorDividaConstricao,
-            DataAutoTermoConstricao, UrlArquivoMandado
+            DataAutoTermoConstricao, UrlArquivoMandado, NomeComprador, CPFCNPJComprador, NomeVendedor, CPFCNPJVendedor
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         d.IDContrato, d.Protocolo, d.IDStatus, d.IDCartorio, d.DataRemessa, d.Solicitante,
         d.Telefone, d.Instituicao, d.Email, d.TipoDocumento, d.TipoServico,
@@ -126,7 +135,8 @@ def salvar_detalhes_pedido(d):
         dados_constricao.get("Vara"), dados_constricao.get("Usuario"),
         dados_constricao.get("NumeroProcesso"), dados_constricao.get("NaturezaProcesso"),
         to_float(dados_constricao.get("ValorDivida")), dados_constricao.get("DataAutoTermo"),
-        d.UrlArquivoMandado
+        d.UrlArquivoMandado, comprador.get("Nome"), comprador.get("CPFCNPJ"),
+        vendedor.get("Nome"), vendedor.get("CPFCNPJ")
     ))
 
     conn.commit()
