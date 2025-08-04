@@ -1,0 +1,22 @@
+# .gitignore
+
+# Ignorar banco de dados local
+*.db
+database/onr_tokens.db
+__pycache__/
+*.pyc
+
+# Ignorar arquivos de ambiente
+.env
+
+# Ignorar arquivos de log ou temporários
+*.log
+*.tmp
+*.bak
+
+# Ignorar arquivos do VS Code
+.vscode/
+
+# Ignorar arquivos do sistema
+.DS_Store
+Thumbs.db

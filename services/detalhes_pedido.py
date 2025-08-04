@@ -1,6 +1,6 @@
 # Consulta os detalhes/informações de um pedido específico via GetPedidoAC_V7.
 
-from servico_base import executar_servico
+from services.servico_base import executar_servico
 
 def get_pedido_ac_v7(id_contrato: int):
     wsdl = "https://origin-hml3-wsoficio.onr.org.br/eprotocolo.asmx?wsdl"
@@ -13,7 +13,7 @@ def get_pedido_ac_v7(id_contrato: int):
     return resposta
 
 
-# Teste simples
+# Teste execução direta.
 if __name__ == "__main__":
     try:
         contrato_id = 2483636  

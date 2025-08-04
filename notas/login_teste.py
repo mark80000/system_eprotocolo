@@ -10,7 +10,7 @@ import re
 from zeep import Client
 from zeep.transports import Transport
 from requests import Session
-from tokens_db import inicializar_banco, salvar_tokens
+from database.tokens_db import inicializar_banco, salvar_tokens
 
 # Função para extrair dados do certificado.
 def obter_dados_certificado():
@@ -128,7 +128,7 @@ def chamar_login(cert_data, id_parceiro):
 # Execução principal.
 if __name__ == "__main__":
     try:
-        from tokens_db import inicializar_banco, salvar_tokens  # importante importar funções
+        from database.tokens_db import inicializar_banco, salvar_tokens  # importante importar funções
 
         id_parceiro_ws = 2507  # ID FORNECIDO PELA ONR.
 

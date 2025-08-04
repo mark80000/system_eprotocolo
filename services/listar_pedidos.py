@@ -1,6 +1,6 @@
 # Lista os pedidos em aberto via ListPedidosAC.
 
-from servico_base import executar_servico
+from services.servico_base import executar_servico
 
 def listar_pedidos():
     wsdl = "https://origin-hml3-wsoficio.onr.org.br/eprotocolo.asmx?wsdl"
@@ -21,7 +21,7 @@ def listar_pedidos():
     return resposta
 
 
-# Execução de teste direta.
+# Teste execução direta.
 if __name__ == "__main__":
     try:
         resposta = listar_pedidos()

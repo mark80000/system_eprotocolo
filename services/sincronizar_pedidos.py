@@ -1,12 +1,20 @@
 # Puxa detalhes/informações dos pedidos em aberto a partir de ListPedidosAC e GetPedidoAC_V7.
-
+import os
 import sqlite3
-from listar_pedidos import listar_pedidos
-from detalhes_pedido import get_pedido_ac_v7
+from services.listar_pedidos import listar_pedidos
+from services.detalhes_pedido import get_pedido_ac_v7
 from zeep.helpers import serialize_object
+from decimal import Decimal
 
-DB_PATH = "pedidos_onr.db"
+DB_PATH = os.path.join("database", "pedidos_onr.db")
 
+# Transforma valor decimal em float.
+def to_float(val):
+    if isinstance(val, Decimal):
+        return float(val)
+    return val
+
+# Cria tabela para armazenamento dos dados.
 def criar_tabela_se_nao_existir():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -68,6 +76,7 @@ def criar_tabela_se_nao_existir():
     conn.commit()
     conn.close()
 
+# Salva dados na tabela.
 def salvar_detalhes_pedido(d):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -93,7 +102,7 @@ def salvar_detalhes_pedido(d):
             NumeroProcessoConstricao, NaturezaProcessoConstricao, ValorDividaConstricao,
             DataAutoTermoConstricao, UrlArquivoMandado
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         d.IDContrato, d.Protocolo, d.IDStatus, d.IDCartorio, d.DataRemessa, d.Solicitante,
         d.Telefone, d.Instituicao, d.Email, d.TipoDocumento, d.TipoServico,
@@ -103,7 +112,7 @@ def salvar_detalhes_pedido(d):
         apresentante.get("Bairro"), apresentante.get("Cidade"), apresentante.get("Estado"), apresentante.get("CEP"),
         apresentante.get("DDD"), apresentante.get("Telefone"),
         d.PrenotacaoDataInclusao, d.PrenotacaoDataVencimento, d.PrenotacaoDataReenvio,
-        d.ValorServico, d.DataResposta, d.Resposta,
+        to_float(d.ValorServico), d.DataResposta, d.Resposta,
         dados_aceite.get("Nome"), dados_aceite.get("Data"),
         d.TipoCobranca, d.CertidaoInteiroTeor, d.TipoIsencao,
         d.NrProcesso, d.FolhasProcesso, d.DataGratuidade,
@@ -111,13 +120,14 @@ def salvar_detalhes_pedido(d):
         dados_constricao.get("TipoConstricao"), dados_constricao.get("Processo"),
         dados_constricao.get("Vara"), dados_constricao.get("Usuario"),
         dados_constricao.get("NumeroProcesso"), dados_constricao.get("NaturezaProcesso"),
-        dados_constricao.get("ValorDivida"), dados_constricao.get("DataAutoTermo"),
+        to_float(dados_constricao.get("ValorDivida")), dados_constricao.get("DataAutoTermo"),
         d.UrlArquivoMandado
     ))
 
     conn.commit()
     conn.close()
 
+# Puxa os detelhes dos pedidos.
 def get_detalhes_pedidos_listados(pedidos):
     detalhes_pedidos = []
 
@@ -135,6 +145,7 @@ def get_detalhes_pedidos_listados(pedidos):
             print(f"Falha ao obter detalhes do contrato {id_contrato}: {e}")
 
     return detalhes_pedidos
+
 
 def sincronizar_pedidos():
     try:
@@ -169,6 +180,7 @@ def sincronizar_pedidos():
 
     except Exception as e:
         print("Erro geral na sincronização:", e)
+
 
 if __name__ == "__main__":
     sincronizar_pedidos()

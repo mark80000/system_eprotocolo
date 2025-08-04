@@ -3,10 +3,13 @@
 import sqlite3
 import hashlib
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
+import os
 
+load_dotenv()
 
-DB_NAME = "onr_tokens.db"
-CHAVE = "3BE1BF10-6792-4563-9ED7-9C2DA455F233"  # SUBSTIRUIR PELA CHAVE FORNECIDA PELA ONR
+DB_NAME = os.path.join("database", "onr_tokens.db")
+CHAVE = os.getenv("CHAVE")  # CHAVE FORNECIDA PELA ONR
 
 
 def inicializar_banco():
