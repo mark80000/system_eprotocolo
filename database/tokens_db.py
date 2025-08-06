@@ -73,10 +73,8 @@ def limpar_tokens_antigos(horas: int = 24):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("""
-        DELETE FROM tokens
-        WHERE 
-            (usado = 1 AND criado_em < ?) OR 
-            (usado = 0 AND criado_em < ?)
+       DELETE FROM tokens
+       WHERE (usado = 1 OR usado = 0) AND criado_em < ?
     """, (limite_tempo,))
     conn.commit()
     conn.close()

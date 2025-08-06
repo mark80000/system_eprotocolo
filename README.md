@@ -2,4 +2,4 @@
 
 ## Objetivo
 
-Integrar os pedidos feitos pela ONR com os sistema interno do Cartório.
+Integrar os pedidos feitos pela ONR com o sistema interno do Cartório.
