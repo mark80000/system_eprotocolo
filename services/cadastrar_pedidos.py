@@ -2,7 +2,7 @@
 import os
 import sqlite3
 import json
-from services.listar_pedidos import listar_pedidos
+from services.lista_pedidos import listar_pedidos
 from services.detalhes_pedido import get_pedido_ac_v7
 from zeep.helpers import serialize_object
 from decimal import Decimal
@@ -163,7 +163,7 @@ def get_detalhes_pedidos_listados(pedidos):
     return detalhes_pedidos
 
 # Lista os pedidos, puxa os detalhes, salva no banco e cria um .txt para vizualização.
-def sincronizar_pedidos():
+def  cadastrar_pedidos():
     try:
         criar_tabela_se_nao_existir()
 
@@ -200,4 +200,4 @@ def sincronizar_pedidos():
 
 
 if __name__ == "__main__":
-    sincronizar_pedidos()
+    cadastrar_pedidos()
