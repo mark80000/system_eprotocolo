@@ -1,4 +1,4 @@
-# Controla banco de tokens: salvar, buscar, validar, gerar hash.
+# Controla banco de tokens: salvar, buscar, validar, deletar antigos, gerar hash.
 
 import sqlite3
 import hashlib
@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 import os
 
-load_dotenv()
+load_dotenv() # Carrega o .env
 
 DB_NAME = os.path.join("database", "onr_tokens.db")
 CHAVE = os.getenv("CHAVE")  # CHAVE FORNECIDA PELA ONR
@@ -27,7 +27,6 @@ def inicializar_banco():
 
     conn.commit()
     conn.close()
-
 
 def salvar_tokens(tokens):
     conn = sqlite3.connect(DB_NAME)
@@ -59,11 +58,26 @@ def obter_token_valido():
     conn.close()
     return resultado  # (id, token) ou None
 
-
 def marcar_token_como_usado(token_id):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("UPDATE tokens SET usado = 1 WHERE id = ?", (token_id,))
+    conn.commit()
+    conn.close()
+
+def limpar_tokens_antigos(horas: int = 24):
+    """
+    Remove tokens com mais de 'horas' e que já foram usados.
+    """
+    limite_tempo = datetime.now() - timedelta(hours=horas)
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("""
+        DELETE FROM tokens
+        WHERE 
+            (usado = 1 AND criado_em < ?) OR 
+            (usado = 0 AND criado_em < ?)
+    """, (limite_tempo,))
     conn.commit()
     conn.close()
 

@@ -1,4 +1,4 @@
-# Puxa detalhes/informações dos pedidos em aberto a partir de ListPedidosAC e GetPedidoAC_V7.
+# Puxa detalhes/informações dos pedidos em aberto a partir de ListPedidosAC e GetPedidoAC_V7, e salva no banco.
 import os
 import sqlite3
 import json
@@ -94,6 +94,7 @@ def salvar_detalhes_pedido(d):
     partes = serialize_object(d.Partes) if d.Partes else {}
     comprador = vendedor = {}
 
+    # Divide as partes entre Comprador e Vendedor, e salva.
     for parte in partes.get("GetPedidoAC_DadosParte_WSResp", []):
         if parte.get("Qualidade") == "Comprador":
             comprador = parte
@@ -142,7 +143,7 @@ def salvar_detalhes_pedido(d):
     conn.commit()
     conn.close()
 
-# Puxa os detelhes dos pedidos.
+# Função para puxar os detelhes dos pedidos.
 def get_detalhes_pedidos_listados(pedidos):
     detalhes_pedidos = []
 
@@ -161,7 +162,7 @@ def get_detalhes_pedidos_listados(pedidos):
 
     return detalhes_pedidos
 
-
+# Lista os pedidos, puxa os detalhes, salva no banco e cria um .txt para vizualização.
 def sincronizar_pedidos():
     try:
         criar_tabela_se_nao_existir()

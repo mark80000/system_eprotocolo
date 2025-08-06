@@ -3,11 +3,13 @@
 from zeep import Client
 from zeep.transports import Transport
 from requests import Session
-from database.tokens_db import CHAVE, obter_token_valido, gerar_hash, marcar_token_como_usado, salvar_tokens
+from database.tokens_db import CHAVE, obter_token_valido, gerar_hash, marcar_token_como_usado, salvar_tokens, limpar_tokens_antigos
 from services.login import chamar_login 
 
 # Pega token disponível, caso não tenha, faz login.
 def obter_token_ou_fazer_login():
+
+    limpar_tokens_antigos(horas=24)
     resultado = obter_token_valido()
     if resultado:
         return resultado
