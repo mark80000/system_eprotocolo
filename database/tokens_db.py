@@ -8,7 +8,7 @@ import os
 
 load_dotenv() # Carrega o .env
 
-DB_NAME = os.path.join("database", "onr_tokens.db")
+DB_NAME = os.path.join("database", "cartorio.db")
 CHAVE = os.getenv("CHAVE")  # CHAVE FORNECIDA PELA ONR
 
 

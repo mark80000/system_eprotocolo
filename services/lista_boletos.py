@@ -1,3 +1,5 @@
+# Lista de boletos anexos a um pedido via ListBoletosAC.
+
 from services.servico_base import executar_servico
 
 def listar_boletos(id_contrato: int):

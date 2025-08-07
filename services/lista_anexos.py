@@ -1,3 +1,5 @@
+# Lista de anexos a um pedido via ListAnexosAC.
+
 from services.servico_base import executar_servico
 
 def listar_anexos(id_contrato: int):

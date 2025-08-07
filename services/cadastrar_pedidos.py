@@ -1,4 +1,5 @@
 # Puxa detalhes/informações dos pedidos em aberto a partir de ListPedidosAC e GetPedidoAC_V7, e salva no banco.
+
 import os
 import sqlite3
 import json
@@ -7,7 +8,7 @@ from services.detalhes_pedido import get_pedido_ac_v7
 from zeep.helpers import serialize_object
 from decimal import Decimal
 
-DB_PATH = os.path.join("database", "pedidos_onr.db")
+DB_PATH = os.path.join("database", "cartorio.db")
 
 # Transforma valor decimal em float.
 def to_float(val):
@@ -161,6 +162,37 @@ def get_detalhes_pedidos_listados(pedidos):
             print(f"Falha ao obter detalhes do contrato {id_contrato}: {e}")
 
     return detalhes_pedidos
+
+# Apenas exibe os detalhes no console e salva em .txt para análise manual.
+def exibir_detalhes_pedidos():
+    try:
+        resposta_lista = listar_pedidos()
+
+        if not resposta_lista.RETORNO or not resposta_lista.Pedidos:
+            print("Nenhum pedido em aberto encontrado.")
+            return
+
+        pedidos = resposta_lista.Pedidos.ListPedidosAC_Pedidos_WSResp
+        if not isinstance(pedidos, list):
+            pedidos = [pedidos]
+
+        print(f"\n{len(pedidos)} pedidos encontrados:")
+        for p in pedidos:
+            print(f"IDContrato: {p.IDContrato}, Protocolo: {p.Protocolo}")
+
+        detalhes_lista = get_detalhes_pedidos_listados(pedidos)
+
+        for detalhes in detalhes_lista:
+            print(f"\n{'='*80}\nPedido ID {detalhes.IDContrato}:")
+            print(json.dumps(serialize_object(detalhes), indent=4, ensure_ascii=False, default=str))
+
+        with open("visualizar_detalhes.txt", "w", encoding="utf-8") as f:
+            for detalhes in detalhes_lista:
+                json_string = json.dumps(serialize_object(detalhes), indent=4, ensure_ascii=False, default=str)
+                f.write(json_string + "\n" + ("=" * 80) + "\n\n")
+
+    except Exception as e:
+        print("Erro ao exibir detalhes dos pedidos:", e)
 
 # Lista os pedidos, puxa os detalhes, salva no banco e cria um .txt para vizualização.
 def  cadastrar_pedidos():
