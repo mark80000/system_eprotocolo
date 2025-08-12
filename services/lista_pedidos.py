@@ -13,7 +13,7 @@ def listar_pedidos():
         "IDTipoServico": -1,
         "IDStatus": 1,  # 1 = Em aberto
         "DataSolicitacaoInicial": "2025-07-01",
-        "DataSolicitacaoFinal": "2025-11-07",
+        "DataSolicitacaoFinal": "2025-08-12",
         "NumeroBanco": -1
     }
 
