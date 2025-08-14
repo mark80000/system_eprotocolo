@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-# Importações e configurações globais
 import customtkinter as ctk
 from tkinter import messagebox
 import sqlite3
@@ -21,18 +19,14 @@ ctk.set_default_color_theme("blue")
 # Caminho para o seu banco de dados SQLite
 DB_PATH = "database/cartorio.db"
 
-# ==================== Mapeamento de Status ====================
-# Importante: Assumimos que os IDs de status são 1 para 'Em Aberto' e 2 para 'Reaberto - Não Concluído'.
-# Se os IDs reais da API forem diferentes, você precisará ajustar este dicionário.
+# Mapeamento de Status, incluindo "Todos" para o filtro
 STATUS_MAP = {
-    "Todos": "Todos",
-    "Em Aberto": 1,
+    "Em aberto": 1,
     "Reaberto - Não Concluído": 8,
-    # Adicione outros status aqui conforme necessário
 }
 
 # Mapeamento reverso para exibir o nome completo na tabela
-STATUS_MAP_REVERSE = {v: k for k, v in STATUS_MAP.items() if v != "Todos"}
+STATUS_MAP_REVERSE = {v: k for k, v in STATUS_MAP.items() if v is not None}
 
 class PedidoApp(ctk.CTk):
     """
@@ -47,11 +41,8 @@ class PedidoApp(ctk.CTk):
         self.maxsize(width=900, height=550)
         
         self.selected_pedido = None
-        # O cache de pedidos agora é uma lista de dicionários com todos os detalhes
-        # A conversão de zeep para dict será feita na função de atualização
         self.pedidos_onr_cache = []
         
-        # A ordem das colunas foi atualizada para corresponder ao novo schema do banco de dados.
         self.column_order = (
             "IDContrato", "Protocolo", "IDStatus", "IDCartorio", "DataRemessa", "Solicitante", "Telefone",
             "Instituicao", "Email", "TipoDocumento", "TipoServico", "ImportacaoExtratoXML",
@@ -80,83 +71,99 @@ class PedidoApp(ctk.CTk):
         self.sidebar.grid(row=0, column=0, sticky="ns")
 
         # Botão para atualizar a lista diretamente da API
-        self.btn_listar_onr = ctk.CTkButton(self.sidebar, text="Atualizar", command=self.listar_pedidos_onr_gui)
+        self.btn_listar_onr = ctk.CTkButton(self.sidebar, text="Atualizar", command=self.listar_pedidos_onr_gui, font=("Helvetica", 15))
         self.btn_listar_onr.pack(padx=10, pady=10, fill="x")
+        
+        # Novo botão para limpar a lista, já que agora ela acumula os pedidos
+        self.btn_limpar_lista = ctk.CTkButton(self.sidebar, text="Limpar Lista", command=self.limpar_cache, font=("Helvetica", 15))
+        self.btn_limpar_lista.pack(padx=10, pady=10, fill="x")
 
-        # Botão para listar pedidos salvos no banco de dados local
-        self.btn_carregar_db = ctk.CTkButton(self.sidebar, text="Listar Pedidos Salvos", command=self.mostrar_lista_db)
-        self.btn_carregar_db.pack(padx=10, pady=10, fill="x")
+        # Botão para exibir a lista salva no banco de dados local
+        self.btn_listar_db = ctk.CTkButton(self.sidebar, text="Pedidos Salvos", command=self.mostrar_lista_db, font=("Helvetica", 15))
+        self.btn_listar_db.pack(padx=10, pady=10, fill="x")
 
         # Área principal
         self.main_frame = ctk.CTkFrame(self, corner_radius=0)
         self.main_frame.grid(row=0, column=1, sticky="news")
-        self.main_frame.grid_rowconfigure(1, weight=1)
+        self.main_frame.grid_rowconfigure(0, weight=1)
         self.main_frame.grid_columnconfigure(0, weight=1)
 
         self.frame_filtros = self.criar_frame_filtros()
         self.frame_lista = self.criar_frame_lista()
         self.frame_detalhes = self.criar_frame_detalhes()
 
-        # Inicia mostrando os pedidos salvos no DB
         self.mostrar_lista_db()
         self.update_idletasks()
-        # Após carregar o DB, já atualiza a lista da API para o cache
-        #self.listar_pedidos_onr_gui()
 
     def _inicializar_db(self):
-        """
-        Cria a tabela 'pedidos_onr' se ela não existir, usando a função do arquivo de serviço.
-        """
         criar_tabela_se_nao_existir()
+    
+    def limpar_cache(self):
+        """Limpa o cache de pedidos da ONR e atualiza a tabela."""
+        self.pedidos_onr_cache = []
+        self.mostrar_lista()
+        messagebox.showinfo("Info", "Lista de pedidos ONR limpa.")
 
     def listar_pedidos_onr_gui(self):
         """
-        Busca pedidos na ONR, armazena em cache (convertendo para dicionários)
+        Busca pedidos na ONR, ADICIONA ao cache (evitando duplicatas)
         e recarrega a lista na interface.
-        Não salva no banco de dados local neste momento.
         """
         try:
             self.frame_lista.grid_rowconfigure(0, weight=0)
             loading_label = ctk.CTkLabel(self.frame_lista, text="Buscando pedidos na ONR... Aguarde.", text_color="blue", fg_color="white")
             loading_label.grid(row=0, column=0, padx=10, pady=10, sticky="s")
             self.update_idletasks()
-
-            # Puxa a lista básica de pedidos da API.
-            resposta_lista = listar_pedidos()
-
+            
+            status_filtro_text = self.status_var.get()
+            status_id = STATUS_MAP.get(status_filtro_text)
+            
+            # Puxa a lista básica de pedidos da API, passando o status ID
+            # Se status_id for None, o serviço irá omitir o filtro
+            resposta_lista = listar_pedidos(id_status=status_id)
+            
+            # Verificação para evitar que o cache seja limpo se a API não retornar nada
             if not resposta_lista.RETORNO or not resposta_lista.Pedidos:
-                messagebox.showinfo("Info", "Nenhum pedido em aberto encontrado na ONR.")
+                messagebox.showinfo("Info", "Nenhum pedido encontrado na ONR com o filtro selecionado.")
                 loading_label.destroy()
                 self.main_frame.grid_rowconfigure(0, weight=1)
+                self.carregar_pedidos_do_cache()
                 return
 
-            # Extrai a lista de objetos de pedidos básicos.
             pedidos_basicos = resposta_lista.Pedidos.ListPedidosAC_Pedidos_WSResp
-            # Garante que seja sempre uma lista, mesmo se houver apenas um pedido.
             if not isinstance(pedidos_basicos, list):
                 pedidos_basicos = [pedidos_basicos]
             
             loading_label.configure(text="Obtendo detalhes dos pedidos...")
             self.update_idletasks()
 
-            # Puxa os detalhes completos usando a função do seu arquivo de serviço.
             pedidos_detalhados_zeep = get_detalhes_pedidos_listados(pedidos_basicos)
             
             if not pedidos_detalhados_zeep:
                 messagebox.showinfo("Info", "Nenhum detalhe de pedido foi encontrado.")
                 loading_label.destroy()
                 self.main_frame.grid_rowconfigure(0, weight=1)
+                self.carregar_pedidos_do_cache()
                 return
 
-            # CORREÇÃO: Converte cada objeto Zeep em um dicionário antes de armazenar no cache
-            pedidos_detalhados_dict = [serialize_object(p) for p in pedidos_detalhados_zeep]
-            self.pedidos_onr_cache = pedidos_detalhados_dict
+            # Cria um conjunto (set) dos IDs de contratos que já estão em cache para evitar duplicatas
+            existing_ids = {p.get("IDContrato") for p in self.pedidos_onr_cache}
+
+            novos_pedidos = []
+            for p in pedidos_detalhados_zeep:
+                pedido_dict = serialize_object(p)
+                # Verifica se o ID do contrato já existe antes de adicionar
+                if pedido_dict.get("IDContrato") not in existing_ids:
+                    novos_pedidos.append(pedido_dict)
+                    existing_ids.add(pedido_dict.get("IDContrato"))
+            
+            # Adiciona os novos pedidos ao cache existente
+            self.pedidos_onr_cache.extend(novos_pedidos)
 
             loading_label.destroy()
             self.main_frame.grid_rowconfigure(0, weight=1)
-            messagebox.showinfo("Sucesso", f"{len(self.pedidos_onr_cache)} pedidos carregados da ONR com sucesso!")
+            messagebox.showinfo("Sucesso", f"{len(novos_pedidos)} novos pedidos carregados da ONR com sucesso!")
             
-            # Atualiza a lista na interface com os dados do cache
             self.mostrar_lista()
 
         except Exception as e:
@@ -169,12 +176,10 @@ class PedidoApp(ctk.CTk):
 
     # ================= Frame da Lista =================
     def criar_frame_lista(self):
-        """Cria e configura o frame que contém a lista de pedidos."""
         frame = ctk.CTkFrame(self.main_frame)
         frame.grid_columnconfigure(0, weight=1)
         frame.grid_rowconfigure(1, weight=1)
         
-        # A tabela agora exibe as colunas mais importantes e relevantes.
         self.tree = self.criar_tabela(frame)
         self.tree.grid(row=1, column=0, sticky="snew", padx=10, pady=0)
 
@@ -186,15 +191,9 @@ class PedidoApp(ctk.CTk):
         return frame
 
     def criar_tabela(self, parent):
-        """
-        Cria e configura o Treeview para exibir uma seleção de colunas relevantes
-        da lista de pedidos.
-        """
-        # Exibiremos apenas algumas colunas para a tabela da GUI, 
-        # para não ficar muito larga, mas o cache continua completo.
         visible_columns = ["IDContrato", "IDStatus", "Protocolo", "Instituicao", "TipoDocumento", "DataRemessa"]
-        tree = ttk.Treeview(parent, columns=visible_columns, show="headings", height=20)
-
+        tree = ttk.Treeview(parent, columns=visible_columns, show="headings", height=16)
+        
         tree.column("IDContrato", width=0, stretch=False)
         tree.heading("IDStatus", text="Status")
         tree.column("IDStatus", anchor="w", width=70)
@@ -210,41 +209,31 @@ class PedidoApp(ctk.CTk):
         return tree
 
     def carregar_pedidos_do_cache(self):
-        """
-        Carrega os pedidos do cache (lista em memória) com base nos filtros aplicados.
-        Como o cache agora armazena dicionários, o acesso é feito com .get().
-        """
         self.tree.delete(*self.tree.get_children())
         
         if not self.pedidos_onr_cache:
             return
 
         status_filtro_text = self.status_var.get()
-        # Usa o mapa para obter o ID do status
-        status_filtro_id = STATUS_MAP.get(status_filtro_text, "Todos")
+        status_filtro_id = STATUS_MAP.get(status_filtro_text)
 
         data_inicial_filtro = self.data_inicial_entry.get()
         data_final_filtro = self.data_final_entry.get()
         
         for p in self.pedidos_onr_cache:
-            # Ponto de correção: Verifica se o ID do status do pedido corresponde ao filtro
-            if status_filtro_id != "Todos" and p.get("IDStatus") != status_filtro_id:
+            if status_filtro_id is not None and p.get("IDStatus") != status_filtro_id:
                 continue
             if data_inicial_filtro and p.get("DataRemessa", "") < data_inicial_filtro:
                 continue
             if data_final_filtro and p.get("DataRemessa", "") > data_final_filtro:
                 continue
 
-            # Lógica adicionada: Usa 'Instituicao' se não estiver vazia, caso contrário, usa 'Solicitante'
             instituicao_para_mostrar = p.get("Instituicao")
             if not instituicao_para_mostrar:
                 instituicao_para_mostrar = p.get("Solicitante", "")
 
-            # CORREÇÃO: A lista de valores agora tem 6 elementos,
-            # alinhando-se corretamente com as 6 colunas do Treeview.
             valores = [
                 p.get("IDContrato"),
-                # Usa o mapa reverso para exibir o nome do status
                 STATUS_MAP_REVERSE.get(p.get("IDStatus"), p.get("IDStatus")),
                 p.get("Protocolo"),
                 instituicao_para_mostrar,
@@ -261,46 +250,43 @@ class PedidoApp(ctk.CTk):
         cursor = conn.cursor()
 
         try:
-            cursor.execute("SELECT IDContrato, IDStatus, Protocolo, Instituicao, TipoDocumento, DataRemessa FROM pedidos_onr")
-            pedidos = cursor.fetchall()
-            
             self.tree.delete(*self.tree.get_children())
-
+            
             status_filtro_text = self.status_var.get()
-            status_filtro_id = STATUS_MAP.get(status_filtro_text, "Todos")
+            status_filtro_id = STATUS_MAP.get(status_filtro_text)
             data_inicial_filtro = self.data_inicial_entry.get()
             data_final_filtro = self.data_final_entry.get()
 
-            for p in pedidos:
-                pedido_dict = {
-                    "IDContrato": p[0],
-                    "IDStatus": p[1],
-                    "Protocolo": p[2],
-                    "Instituicao": p[3],
-                    "Solicitante": p[4],
-                    "TipoDocumento": p[5],
-                    "DataRemessa": p[6]
-                }
-                
-                # Aplica os filtros nos dados do DB
-                if status_filtro_id != "Todos" and pedido_dict["IDStatus"] != status_filtro_id:
-                    continue
-                if data_inicial_filtro and pedido_dict.get("DataRemessa", "") < data_inicial_filtro:
-                    continue
-                if data_final_filtro and pedido_dict.get("DataRemessa", "") > data_final_filtro:
-                    continue
+            query = "SELECT * FROM pedidos_onr WHERE 1=1"
+            params = []
+            
+            if status_filtro_id is not None:
+                query += " AND IDStatus = ?"
+                params.append(status_filtro_id)
+            if data_inicial_filtro:
+                query += " AND DataRemessa >= ?"
+                params.append(data_inicial_filtro)
+            if data_final_filtro:
+                query += " AND DataRemessa <= ?"
+                params.append(data_final_filtro)
+            
+            cursor.execute(query, params)
+            pedidos = cursor.fetchall()
+            
+            colunas_db = [desc[0] for desc in cursor.description]
 
-                # Lógica adicionada: Usa 'Instituicao' se não estiver vazia, caso contrário, usa 'Solicitante'
-                instituicao_para_mostrar = pedido_dict["Instituicao"]
+            for p in pedidos:
+                pedido_dict = dict(zip(colunas_db, p))
+                
+                instituicao_para_mostrar = pedido_dict.get("Instituicao")
                 if not instituicao_para_mostrar:
                     instituicao_para_mostrar = pedido_dict.get("Solicitante", "")
 
-                # Usa o mapa reverso para exibir o nome do status
                 valores_para_treeview = [
                     pedido_dict["IDContrato"],
                     STATUS_MAP_REVERSE.get(pedido_dict["IDStatus"], pedido_dict["IDStatus"]),
                     pedido_dict["Protocolo"],
-                    instituicao_para_mostrar, # Valor atualizado aqui
+                    instituicao_para_mostrar,
                     pedido_dict["TipoDocumento"],
                     pedido_dict["DataRemessa"]
                 ]
@@ -312,9 +298,6 @@ class PedidoApp(ctk.CTk):
             conn.close()
 
     def selecionar_pedido(self, event=None):
-        """
-        Lida com a seleção de um pedido na lista, buscando os detalhes no cache.
-        """
         item = self.tree.focus()
         if not item:
             return
@@ -322,8 +305,6 @@ class PedidoApp(ctk.CTk):
         valores = self.tree.item(item, "values")
         id_contrato = valores[0]
 
-        # Busca o pedido completo no cache (lista em memória).
-        # Como o cache armazena dicionários, o acesso é feito por chave.
         self.selected_pedido = next(
             (p for p in self.pedidos_onr_cache if str(p.get("IDContrato")) == str(id_contrato)), None
         )
@@ -331,7 +312,6 @@ class PedidoApp(ctk.CTk):
         if self.selected_pedido:
             self.mostrar_detalhes()
         else:
-            # Caso o pedido não esteja no cache, tenta buscar no DB (cenário de segurança)
             conn = sqlite3.connect(DB_PATH)
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM pedidos_onr WHERE IDContrato = ?", (id_contrato,))
@@ -347,43 +327,28 @@ class PedidoApp(ctk.CTk):
             
     def criar_frame_filtros(self):
         """Cria a interface de filtros para a lista de pedidos."""
-        self.frame_filtros = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        self.frame_filtros = ctk.CTkFrame(self.main_frame, fg_color="#353535")
         self.frame_filtros.grid(row=0, column=0, sticky="ew", padx=10, pady=(10, 0)) 
         
         linha1 = ctk.CTkFrame(self.frame_filtros, fg_color="transparent")
         linha1.pack(fill="x", pady=10, padx=5)
 
-        ctk.CTkLabel(linha1, text="Status:").pack(side="left", padx=(10, 5))
-        self.status_var = ctk.StringVar(value="Todos")
-        # As opções de status agora usam as chaves do STATUS_MAP para o filtro em memória
+        ctk.CTkLabel(linha1, text="Status:", font=("Helvetica", 18)).pack(side="left", padx=(10, 5))
+        self.status_var = ctk.StringVar(value="Em aberto")
         status_opcoes = list(STATUS_MAP.keys())
         self.status_combo = ctk.CTkComboBox(
-            linha1, values=status_opcoes, variable=self.status_var, width=150,
-            command=lambda _: self.carregar_pedidos_do_cache() if self.frame_lista.winfo_ismapped() else self.carregar_pedidos_do_db()
+            linha1, values=status_opcoes,font=("Helvetica", 14), variable=self.status_var, width=190,
+            command=lambda _: self.carregar_pedidos_do_cache() if self.btn_listar_onr.winfo_ismapped() else self.carregar_pedidos_do_db()
         )
         self.status_combo.pack(side="left", padx=5)
 
-        ctk.CTkLabel(linha1, text="Data Inicial:").pack(side="left", padx=5)
+        ctk.CTkLabel(linha1, text="Data Inicial:", font=("Helvetica", 18)).pack(side="left", padx=5)
         self.data_inicial_entry = ctk.CTkEntry(linha1, width=120, placeholder_text="AAAA-MM-DD")
         self.data_inicial_entry.pack(side="left", padx=5)
 
-        ctk.CTkLabel(linha1, text="Data Final:").pack(side="left", padx=5)
+        ctk.CTkLabel(linha1, text="Data Final:", font=("Helvetica", 18)).pack(side="left", padx=5)
         self.data_final_entry = ctk.CTkEntry(linha1, width=120, placeholder_text="AAAA-MM-DD")
         self.data_final_entry.pack(side="left", padx=5)
-        
-        linha2 = ctk.CTkFrame(self.frame_filtros, fg_color="transparent")
-        linha2.pack(fill="x", pady=6, padx=5)
-        linha2.grid_columnconfigure(1, weight=1)
-
-        # Atualizado o botão de filtro para usar a função correta dependendo do frame visível
-        def aplicar_filtro():
-            if self.frame_lista.winfo_ismapped():
-                if self.btn_listar_onr.winfo_ismapped():
-                    self.carregar_pedidos_do_cache()
-                else:
-                    self.carregar_pedidos_do_db()
-        
-        ctk.CTkButton(linha2, text="Aplicar Filtros", command=aplicar_filtro).pack(side="right", padx=5)
 
         return self.frame_filtros
 
@@ -426,16 +391,14 @@ class PedidoApp(ctk.CTk):
         """Exibe o frame da lista de pedidos carregados da API."""
         self.frame_detalhes.grid_forget()
         self.frame_filtros.grid(row=0, column=0, sticky="new", padx=10, pady=(10, 0))
-        self.frame_lista.grid(row=1, column=0, sticky="new", padx=10, pady=(0, 10))
-        # Chama a função para carregar do cache
+        self.frame_lista.grid(row=1, column=0, sticky="new", padx=10, pady=(0, 100))
         self.carregar_pedidos_do_cache()
     
     def mostrar_lista_db(self):
         """Exibe o frame da lista de pedidos salvos no banco de dados."""
         self.frame_detalhes.grid_forget()
         self.frame_filtros.grid(row=0, column=0, sticky="new", padx=10, pady=(10, 0))
-        self.frame_lista.grid(row=1, column=0, sticky="new", padx=10, pady=(0, 10))
-        # Chama a função para carregar do DB
+        self.frame_lista.grid(row=1, column=0, sticky="new", padx=10, pady=(0, 100))
         self.carregar_pedidos_do_db()
 
     def mostrar_detalhes(self):
@@ -453,7 +416,6 @@ class PedidoApp(ctk.CTk):
 
         self.tree_detalhes.delete(*self.tree_detalhes.get_children())
         
-        # Lista dos campos que você deseja exibir
         campos_desejados = [
             "Protocolo",
             "Solicitante",
@@ -473,7 +435,6 @@ class PedidoApp(ctk.CTk):
 
     def abrir_anexo(self):
         """Abre o anexo do pedido no navegador padrão."""
-        # Acessa a URL usando .get() pois o selected_pedido é um dicionário
         if self.selected_pedido and self.selected_pedido.get("UrlArquivoMandado"):
             webbrowser.open(self.selected_pedido["UrlArquivoMandado"])
         else:
@@ -491,11 +452,8 @@ class PedidoApp(ctk.CTk):
         Salva o pedido selecionado no banco de dados local.
         """
         if self.selected_pedido:
-            # selected_pedido já é um dicionário, então pode ser salvo diretamente
             salvar_detalhes_pedido(self.selected_pedido)
             messagebox.showinfo("Sucesso", f"Pedido {self.selected_pedido.get('Protocolo')} cadastrado com sucesso!")
-            
-            # Recarrega a lista de pedidos da API para a interface
             self.listar_pedidos_onr_gui()
         else:
             messagebox.showerror("Erro", "Nenhum pedido selecionado para cadastro.")
