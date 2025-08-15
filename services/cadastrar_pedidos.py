@@ -84,65 +84,90 @@ def criar_tabela_se_nao_existir():
 
 # Salva dados na tabela.
 def salvar_detalhes_pedido(d):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
+    """
+    Salva os detalhes de um pedido na tabela do banco de dados.
 
-    # Serializa objetos complexos
-    apresentante = serialize_object(d.DadosApresentante) if d.DadosApresentante else {}
-    dados_constricao = serialize_object(d.DadosConstricao) if d.DadosConstricao else {}
-    dados_aceite = serialize_object(d.DadosAceite) if d.DadosAceite else {}
+    Args:
+        d (dict): Um dicionário contendo os detalhes do pedido.
+    """
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
 
-    partes = serialize_object(d.Partes) if d.Partes else {}
-    comprador = vendedor = {}
+        # Extrai os dados do dicionário de forma segura
+        apresentante = d.get('DadosApresentante', {})
+        imovel_transacao = d.get('DadosImovelTransacao', {})
+        imovel_dados = d.get('DadosImovel', {})
 
-    # Divide as partes entre Comprador e Vendedor, e salva.
-    for parte in partes.get("GetPedidoAC_DadosParte_WSResp", []):
-        if parte.get("Qualidade") == "Comprador":
-            comprador = parte
-        elif parte.get("Qualidade") == "Vendedor":
-            vendedor = parte
+        pedido_data = {
+            "IDContrato": d.get("IDContrato"),
+            "Protocolo": d.get("Protocolo"),
+            "IDStatus": d.get("IDStatus"),
+            "IDCartorio": d.get("IDCartorio"),
+            "DataRemessa": d.get("DataRemessa"),
+            "Solicitante": d.get("Solicitante"),
+            "Telefone": d.get("Telefone"),
+            "Instituicao": d.get("Instituicao"),
+            "Email": d.get("Email"),
+            "TipoDocumento": d.get("TipoDocumento"),
+            "TipoServico": d.get("TipoServico"),
+            "ImportacaoExtratoXML": d.get("ImportacaoExtratoXML"),
+            "ApresentanteNome": apresentante.get("Nome"),
+            "ApresentanteCPFCNPJ": apresentante.get("CPFCNPJ"),
+            "ApresentanteEmail": apresentante.get("Email"),
+            "ApresentanteVia": apresentante.get("Via"),
+            "ApresentanteEndereco": apresentante.get("Endereco"),
+            "ApresentanteNumero": apresentante.get("Numero"),
+            "ApresentanteComplemento": apresentante.get("Complemento"),
+            "ApresentanteBairro": apresentante.get("Bairro"),
+            "ApresentanteCidade": apresentante.get("Cidade"),
+            "ApresentanteEstado": apresentante.get("Estado"),
+            "ApresentanteCEP": apresentante.get("CEP"),
+            "ApresentanteDDD": apresentante.get("DDD"),
+            "ApresentanteTelefone": apresentante.get("Telefone"),
+            "PrenotacaoDataInclusao": d.get("PrenotacaoDataInclusao"),
+            "PrenotacaoDataVencimento": d.get("PrenotacaoDataVencimento"),
+            "PrenotacaoDataReenvio": d.get("PrenotacaoDataReenvio"),
+            "ValorServico": d.get("ValorServico"),
+            "DataResposta": d.get("DataResposta"),
+            "Resposta": d.get("Resposta"),
+            "AceiteNome": d.get("AceiteNome"),
+            "AceiteData": d.get("AceiteData"),
+            "TipoCobranca": d.get("TipoCobranca"),
+            "CertidaoInteiroTeor": d.get("CertidaoInteiroTeor"),
+            "TipoIsencao": d.get("TipoIsencao"),
+            "NrProcesso": d.get("NrProcesso"),
+            "FolhasProcesso": d.get("FolhasProcesso"),
+            "DataGratuidade": d.get("DataGratuidade"),
+            "FundamentoLegal": d.get("FundamentoLegal"),
+            "UrlArquivoGratuidade": d.get("UrlArquivoGratuidade"),
+            "ProtocoloOrigem": d.get("ProtocoloOrigem"),
+            "TipoConstricao": d.get("TipoConstricao"),
+            "ProcessoConstricao": d.get("ProcessoConstricao"),
+            "VaraConstricao": d.get("VaraConstricao"),
+            "UsuarioConstricao": d.get("UsuarioConstricao"),
+            "NumeroProcessoConstricao": d.get("NumeroProcessoConstricao"),
+            "NaturezaProcessoConstricao": d.get("NaturezaProcessoConstricao"),
+            "ValorDividaConstricao": d.get("ValorDividaConstricao"),
+            "DataAutoTermoConstricao": d.get("DataAutoTermoConstricao"),
+            "UrlArquivoMandado": d.get("UrlArquivoMandado"),
+            "NomeComprador": imovel_transacao.get("NomeComprador"),
+            "CPFCNPJComprador": imovel_transacao.get("CPFCNPJComprador"),
+            "NomeVendedor": imovel_transacao.get("NomeVendedor"),
+            "CPFCNPJVendedor": imovel_transacao.get("CPFCNPJVendedor")
+        }
 
-    c.execute("""
-        INSERT OR REPLACE INTO pedidos_onr (
-            IDContrato, Protocolo, IDStatus, IDCartorio, DataRemessa, Solicitante, Telefone, Instituicao,
-            Email, TipoDocumento, TipoServico, ImportacaoExtratoXML,
-            ApresentanteNome, ApresentanteCPFCNPJ, ApresentanteEmail, ApresentanteVia,
-            ApresentanteEndereco, ApresentanteNumero, ApresentanteComplemento, ApresentanteBairro,
-            ApresentanteCidade, ApresentanteEstado, ApresentanteCEP, ApresentanteDDD,
-            ApresentanteTelefone,
-            PrenotacaoDataInclusao, PrenotacaoDataVencimento, PrenotacaoDataReenvio,
-            ValorServico, DataResposta, Resposta, AceiteNome, AceiteData,
-            TipoCobranca, CertidaoInteiroTeor, TipoIsencao, NrProcesso, FolhasProcesso,
-            DataGratuidade, FundamentoLegal, UrlArquivoGratuidade, ProtocoloOrigem,
-            TipoConstricao, ProcessoConstricao, VaraConstricao, UsuarioConstricao,
-            NumeroProcessoConstricao, NaturezaProcessoConstricao, ValorDividaConstricao,
-            DataAutoTermoConstricao, UrlArquivoMandado, NomeComprador, CPFCNPJComprador, NomeVendedor, CPFCNPJVendedor
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
-        d.IDContrato, d.Protocolo, d.IDStatus, d.IDCartorio, d.DataRemessa, d.Solicitante,
-        d.Telefone, d.Instituicao, d.Email, d.TipoDocumento, d.TipoServico,
-        d.ImportacaoExtratoXML,
-        apresentante.get("Nome"), apresentante.get("CPFCNPJ"), apresentante.get("Email"), apresentante.get("Via"),
-        apresentante.get("Endereco"), apresentante.get("Numero"), apresentante.get("Complemento"),
-        apresentante.get("Bairro"), apresentante.get("Cidade"), apresentante.get("Estado"), apresentante.get("CEP"),
-        apresentante.get("DDD"), apresentante.get("Telefone"),
-        d.PrenotacaoDataInclusao, d.PrenotacaoDataVencimento, d.PrenotacaoDataReenvio,
-        to_float(d.ValorServico), d.DataResposta, d.Resposta,
-        dados_aceite.get("Nome"), dados_aceite.get("Data"),
-        d.TipoCobranca, d.CertidaoInteiroTeor, d.TipoIsencao,
-        d.NrProcesso, d.FolhasProcesso, d.DataGratuidade,
-        d.FundamentoLegal, d.UrlArquivoGratuidade, d.ProtocoloOrigem,
-        dados_constricao.get("TipoConstricao"), dados_constricao.get("Processo"),
-        dados_constricao.get("Vara"), dados_constricao.get("Usuario"),
-        dados_constricao.get("NumeroProcesso"), dados_constricao.get("NaturezaProcesso"),
-        to_float(dados_constricao.get("ValorDivida")), dados_constricao.get("DataAutoTermo"),
-        d.UrlArquivoMandado, comprador.get("Nome"), comprador.get("CPFCNPJ"),
-        vendedor.get("Nome"), vendedor.get("CPFCNPJ")
-    ))
+        colunas = ", ".join(pedido_data.keys())
+        placeholders = ", ".join(["?"] * len(pedido_data))
+        query = f"INSERT OR REPLACE INTO pedidos_onr ({colunas}) VALUES ({placeholders})"
+        cursor.execute(query, tuple(pedido_data.values()))
+        conn.commit()
 
-    conn.commit()
-    conn.close()
+    except sqlite3.Error as e:
+        print(f"Erro ao salvar pedido no banco de dados: {e}")
+    finally:
+        if conn:
+            conn.close()    
 
 # Função para puxar os detelhes dos pedidos.
 def get_detalhes_pedidos_listados(pedidos):
