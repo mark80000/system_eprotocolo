@@ -11,9 +11,10 @@ from services.cadastrar_pedidos import (
     get_detalhes_pedidos_listados,
     salvar_detalhes_pedido
 )
+from datetime import date, timedelta, datetime
 
 # Configuração inicial do CustomTkinter
-ctk.set_appearance_mode("System")
+ctk.set_appearance_mode("Light")
 ctk.set_default_color_theme("blue")
 
 # Caminho para o seu banco de dados SQLite
@@ -36,9 +37,9 @@ class PedidoApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("Integração E-Protocolo")
-        self.geometry("900x550")
-        self.minsize(width=900, height=550)
-        self.maxsize(width=900, height=550)
+        self.geometry("900x500") # Aumentado para acomodar a coluna de Data e Hora
+        self.minsize(width=900, height=500)
+        self.maxsize(width=900, height=500)
         
         self.selected_pedido = None
         self.pedidos_onr_cache = []
@@ -62,25 +63,31 @@ class PedidoApp(ctk.CTk):
         # Inicializa o banco de dados antes de qualquer outra operação
         self._inicializar_db()
 
+        # Configuração do estilo da Treeview para aumentar a fonte
+        style = ttk.Style(self)
+        style.configure("Treeview", font=("Helvetica", 10))
+        style.configure("Treeview.Heading", font=("Helvetica", 12, "bold"))
+
         # Layout principal
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
         # Sidebar
-        self.sidebar = ctk.CTkFrame(self, width=150, corner_radius=1)
+        self.sidebar = ctk.CTkFrame(self, width=100, corner_radius=1)
         self.sidebar.grid(row=0, column=0, sticky="ns")
+        self.sidebar.grid_propagate(False)
 
         # Botão para atualizar a lista diretamente da API
-        self.btn_listar_onr = ctk.CTkButton(self.sidebar, text="Atualizar", command=self.listar_pedidos_onr_gui, font=("Helvetica", 15))
-        self.btn_listar_onr.pack(padx=10, pady=10, fill="x")
+        self.btn_listar_onr = ctk.CTkButton(self.sidebar, text="Atualizar", command=self.listar_pedidos_onr_gui, font=("Helvetica", 15), width=70)
+        self.btn_listar_onr.pack(padx=5, pady=5, fill="x")
         
         # Novo botão para limpar a lista, já que agora ela acumula os pedidos
-        self.btn_limpar_lista = ctk.CTkButton(self.sidebar, text="Limpar Lista", command=self.limpar_cache, font=("Helvetica", 15))
-        self.btn_limpar_lista.pack(padx=10, pady=10, fill="x")
+        self.btn_limpar_lista = ctk.CTkButton(self.sidebar, text="Limpar Lista", command=self.limpar_cache, font=("Helvetica", 15), width=70)
+        self.btn_limpar_lista.pack(padx=5, pady=5, fill="x")
 
         # Botão para exibir a lista salva no banco de dados local
-        self.btn_listar_db = ctk.CTkButton(self.sidebar, text="Pedidos Salvos", command=self.mostrar_lista_db, font=("Helvetica", 15))
-        self.btn_listar_db.pack(padx=10, pady=10, fill="x")
+        self.btn_listar_db = ctk.CTkButton(self.sidebar, text="Pedidos Salvos", command=self.mostrar_lista_db, font=("Helvetica", 15), width=70)
+        self.btn_listar_db.pack(padx=5, pady=5, fill="x")
 
         # Área principal
         self.main_frame = ctk.CTkFrame(self, corner_radius=0)
@@ -115,12 +122,29 @@ class PedidoApp(ctk.CTk):
             loading_label.grid(row=0, column=0, padx=10, pady=10, sticky="s")
             self.update_idletasks()
             
+            # 1. Obtém os valores dos campos de filtro.
             status_filtro_text = self.status_var.get()
             status_id = STATUS_MAP.get(status_filtro_text)
             
-            # Puxa a lista básica de pedidos da API, passando o status ID
-            # Se status_id for None, o serviço irá omitir o filtro
-            resposta_lista = listar_pedidos(id_status=status_id)
+            data_inicial_str = self.data_inicial_entry.get()
+            data_final_str = self.data_final_entry.get()
+
+            # 2. Converte as datas para o formato AAAA-MM-DD para a API, com tratamento de erro
+            try:
+                data_inicial_api = datetime.strptime(data_inicial_str, "%d-%m-%Y").strftime("%Y-%m-%d")
+                data_final_api = datetime.strptime(data_final_str, "%d-%m-%Y").strftime("%Y-%m-%d")
+            except ValueError:
+                messagebox.showerror("Erro de Data", "Formato de data inválido. Use DD-MM-AAAA.")
+                loading_label.destroy()
+                self.main_frame.grid_rowconfigure(0, weight=1)
+                return
+
+            # 3. Chama a função listar_pedidos com os novos parâmetros.
+            resposta_lista = listar_pedidos(
+                id_status=status_id,
+                data_inicial=data_inicial_api,
+                data_final=data_final_api
+            )
             
             # Verificação para evitar que o cache seja limpo se a API não retornar nada
             if not resposta_lista.RETORNO or not resposta_lista.Pedidos:
@@ -217,28 +241,55 @@ class PedidoApp(ctk.CTk):
         status_filtro_text = self.status_var.get()
         status_filtro_id = STATUS_MAP.get(status_filtro_text)
 
-        data_inicial_filtro = self.data_inicial_entry.get()
-        data_final_filtro = self.data_final_entry.get()
+        # Converte as datas do filtro para AAAA-MM-DD para a comparação interna, com tratamento de erro
+        data_inicial_filtro_str = self.data_inicial_entry.get()
+        data_final_filtro_str = self.data_final_entry.get()
         
+        try:
+            data_inicial_filtro = datetime.strptime(data_inicial_filtro_str, "%d-%m-%Y").strftime("%Y-%m-%d")
+            data_final_filtro = datetime.strptime(data_final_filtro_str, "%d-%m-%Y").strftime("%Y-%m-%d")
+        except ValueError:
+            messagebox.showerror("Erro de Data", "Formato de data inválido. Use DD-MM-AAAA.")
+            return
+
         for p in self.pedidos_onr_cache:
+            data_remessa_full = p.get("DataRemessa", "")
+            
+            # Apenas verifica o componente de data para o filtro
+            if data_inicial_filtro and data_remessa_full and data_remessa_full.split(' ')[0] < data_inicial_filtro:
+                continue
+            if data_final_filtro and data_remessa_full and data_remessa_full.split(' ')[0] > data_final_filtro:
+                continue
+            
             if status_filtro_id is not None and p.get("IDStatus") != status_filtro_id:
                 continue
-            if data_inicial_filtro and p.get("DataRemessa", "") < data_inicial_filtro:
-                continue
-            if data_final_filtro and p.get("DataRemessa", "") > data_final_filtro:
-                continue
-
+            
             instituicao_para_mostrar = p.get("Instituicao")
             if not instituicao_para_mostrar:
                 instituicao_para_mostrar = p.get("Solicitante", "")
-
+            
+            # Agora, formata a string completa de data e hora para exibição
+            data_remessa_display = ""
+            if data_remessa_full:
+                try:
+                    # Tenta parsear a string completa, que inclui a data e hora
+                    data_obj = datetime.strptime(data_remessa_full, "%Y-%m-%d %H:%M:%S")
+                    data_remessa_display = data_obj.strftime("%d-%m-%Y %H:%M:%S")
+                except ValueError:
+                    # Em caso de falha, tenta parsear apenas a data
+                    try:
+                        data_obj = datetime.strptime(data_remessa_full.split(' ')[0], "%Y-%m-%d")
+                        data_remessa_display = data_obj.strftime("%d-%m-%Y")
+                    except ValueError:
+                        data_remessa_display = data_remessa_full
+                        
             valores = [
                 p.get("IDContrato"),
                 STATUS_MAP_REVERSE.get(p.get("IDStatus"), p.get("IDStatus")),
                 p.get("Protocolo"),
                 instituicao_para_mostrar,
                 p.get("TipoDocumento"),
-                p.get("DataRemessa")
+                data_remessa_display
             ]
             self.tree.insert("", "end", values=valores)
 
@@ -254,8 +305,17 @@ class PedidoApp(ctk.CTk):
             
             status_filtro_text = self.status_var.get()
             status_filtro_id = STATUS_MAP.get(status_filtro_text)
-            data_inicial_filtro = self.data_inicial_entry.get()
-            data_final_filtro = self.data_final_entry.get()
+            
+            data_inicial_filtro_str = self.data_inicial_entry.get()
+            data_final_filtro_str = self.data_final_entry.get()
+            
+            # Converte as datas do filtro para AAAA-MM-DD para a query SQL, com tratamento de erro
+            try:
+                data_inicial_filtro = datetime.strptime(data_inicial_filtro_str, "%d-%m-%Y").strftime("%Y-%m-%d")
+                data_final_filtro = datetime.strptime(data_final_filtro_str, "%d-%m-%Y").strftime("%Y-%m-%d")
+            except ValueError:
+                messagebox.showerror("Erro de Data", "Formato de data inválido. Use DD-MM-AAAA.")
+                return
 
             query = "SELECT * FROM pedidos_onr WHERE 1=1"
             params = []
@@ -281,14 +341,30 @@ class PedidoApp(ctk.CTk):
                 instituicao_para_mostrar = pedido_dict.get("Instituicao")
                 if not instituicao_para_mostrar:
                     instituicao_para_mostrar = pedido_dict.get("Solicitante", "")
-
+                
+                # Agora, formata a string completa de data e hora para exibição
+                data_remessa_display = ""
+                data_remessa_full = pedido_dict.get("DataRemessa", "")
+                if data_remessa_full:
+                    try:
+                        # Tenta parsear a string completa, que inclui a data e hora
+                        data_obj = datetime.strptime(data_remessa_full, "%Y-%m-%d %H:%M:%S")
+                        data_remessa_display = data_obj.strftime("%d-%m-%Y %H:%M:%S")
+                    except ValueError:
+                        # Em caso de falha, tenta parsear apenas a data
+                        try:
+                            data_obj = datetime.strptime(data_remessa_full.split(' ')[0], "%Y-%m-%d")
+                            data_remessa_display = data_obj.strftime("%d-%m-%Y")
+                        except ValueError:
+                            data_remessa_display = data_remessa_full
+                
                 valores_para_treeview = [
                     pedido_dict["IDContrato"],
                     STATUS_MAP_REVERSE.get(pedido_dict["IDStatus"], pedido_dict["IDStatus"]),
                     pedido_dict["Protocolo"],
                     instituicao_para_mostrar,
                     pedido_dict["TipoDocumento"],
-                    pedido_dict["DataRemessa"]
+                    data_remessa_display
                 ]
                 self.tree.insert("", "end", values=valores_para_treeview)
 
@@ -326,8 +402,8 @@ class PedidoApp(ctk.CTk):
                 self.selected_pedido = None
             
     def criar_frame_filtros(self):
-        """Cria a interface de filtros para a lista de pedidos."""
-        self.frame_filtros = ctk.CTkFrame(self.main_frame, fg_color="#353535")
+        """Cria a interface de filtros para a lista de pedidos, com datas pré-preenchidas."""
+        self.frame_filtros = ctk.CTkFrame(self.main_frame)
         self.frame_filtros.grid(row=0, column=0, sticky="ew", padx=10, pady=(10, 0)) 
         
         linha1 = ctk.CTkFrame(self.frame_filtros, fg_color="transparent")
@@ -342,12 +418,20 @@ class PedidoApp(ctk.CTk):
         )
         self.status_combo.pack(side="left", padx=5)
 
+        # Calcula e formata as datas de hoje e ontem
+        data_hoje = date.today()
+        data_ontem = data_hoje - timedelta(days=1)
+        data_hoje_str = data_hoje.strftime("%d-%m-%Y")
+        data_ontem_str = data_ontem.strftime("%d-%m-%Y")
+
         ctk.CTkLabel(linha1, text="Data Inicial:", font=("Helvetica", 18)).pack(side="left", padx=5)
-        self.data_inicial_entry = ctk.CTkEntry(linha1, width=120, placeholder_text="AAAA-MM-DD")
+        self.data_inicial_entry = ctk.CTkEntry(linha1, width=120)
+        self.data_inicial_entry.insert(0, data_ontem_str)
         self.data_inicial_entry.pack(side="left", padx=5)
 
         ctk.CTkLabel(linha1, text="Data Final:", font=("Helvetica", 18)).pack(side="left", padx=5)
-        self.data_final_entry = ctk.CTkEntry(linha1, width=120, placeholder_text="AAAA-MM-DD")
+        self.data_final_entry = ctk.CTkEntry(linha1, width=120)
+        self.data_final_entry.insert(0, data_hoje_str)
         self.data_final_entry.pack(side="left", padx=5)
 
         return self.frame_filtros
@@ -391,14 +475,14 @@ class PedidoApp(ctk.CTk):
         """Exibe o frame da lista de pedidos carregados da API."""
         self.frame_detalhes.grid_forget()
         self.frame_filtros.grid(row=0, column=0, sticky="new", padx=10, pady=(10, 0))
-        self.frame_lista.grid(row=1, column=0, sticky="new", padx=10, pady=(0, 100))
+        self.frame_lista.grid(row=1, column=0, sticky="new", padx=10, pady=(0, 50))
         self.carregar_pedidos_do_cache()
     
     def mostrar_lista_db(self):
         """Exibe o frame da lista de pedidos salvos no banco de dados."""
         self.frame_detalhes.grid_forget()
         self.frame_filtros.grid(row=0, column=0, sticky="new", padx=10, pady=(10, 0))
-        self.frame_lista.grid(row=1, column=0, sticky="new", padx=10, pady=(0, 100))
+        self.frame_lista.grid(row=1, column=0, sticky="new", padx=10, pady=(0, 50))
         self.carregar_pedidos_do_db()
 
     def mostrar_detalhes(self):
@@ -428,7 +512,7 @@ class PedidoApp(ctk.CTk):
         ]
 
         for campo in campos_desejados:
-            valor = self.selected_pedido.get(campo, "Não disponível")
+            valor = self.selected_pedido.get(campo, "-PREENCHER-")
             self.tree_detalhes.insert("", "end", values=(campo, valor))
 
         self.validar_campos()
