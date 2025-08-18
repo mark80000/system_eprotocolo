@@ -84,13 +84,14 @@ class PedidoApp(ctk.CTk):
         self.btn_limpar_lista = ctk.CTkButton(self.sidebar, text="Limpar Lista", command=self.limpar_cache, font=("Helvetica", 15))
         self.btn_limpar_lista.pack(padx=5, pady=5)
 
-        self.btn_cadastrar_tudo = ctk.CTkButton(self.sidebar, text="Cadastrar Tudo", font=("Helvetica", 15))
+        # Botão para cadastrar todos os pedidos da lista
+        self.btn_cadastrar_tudo = ctk.CTkButton(self.sidebar, text="Cadastrar Tudo", command=self.cadastrar_todos_pedidos, font=("Helvetica", 15))
         self.btn_cadastrar_tudo.pack(padx=5, pady=30)
 
         # Área principal
         self.main_frame = ctk.CTkFrame(self, corner_radius=0)
         self.main_frame.grid(row=0, column=1, sticky="news")
-        self.main_frame.grid_rowconfigure(0, weight=1)
+        self.main_frame.grid_rowconfigure(1, weight=1) 
         self.main_frame.grid_columnconfigure(0, weight=1)
 
         self.frame_filtros = self.criar_frame_filtros()
@@ -146,10 +147,10 @@ class PedidoApp(ctk.CTk):
             
             # Verificação para evitar que o cache seja limpo se a API não retornar nada
             if not resposta_lista.RETORNO or not resposta_lista.Pedidos:
-                messagebox.showinfo("Info", "Nenhum pedido encontrado na ONR com o filtro selecionado.")
+                messagebox.showinfo("Info", "Nenhum pedido novo encontrado na ONR com o filtro selecionado.")
                 loading_label.destroy()
-                self.main_frame.grid_rowconfigure(0, weight=1)
-                self.carregar_pedidos_do_cache()
+                self.main_frame.grid_rowconfigure(1, weight=1)
+                self.carregar_pedidos_do_cache() 
                 return
 
             pedidos_basicos = resposta_lista.Pedidos.ListPedidosAC_Pedidos_WSResp
@@ -164,7 +165,7 @@ class PedidoApp(ctk.CTk):
             if not pedidos_detalhados_zeep:
                 messagebox.showinfo("Info", "Nenhum detalhe de pedido foi encontrado.")
                 loading_label.destroy()
-                self.main_frame.grid_rowconfigure(0, weight=1)
+                self.main_frame.grid_rowconfigure(1, weight=1)
                 self.carregar_pedidos_do_cache()
                 return
 
@@ -183,7 +184,7 @@ class PedidoApp(ctk.CTk):
             self.pedidos_onr_cache.extend(novos_pedidos)
 
             loading_label.destroy()
-            self.main_frame.grid_rowconfigure(0, weight=1)
+            self.main_frame.grid_rowconfigure(1, weight=1)
             messagebox.showinfo("Sucesso", f"{len(novos_pedidos)} novos pedidos carregados da ONR com sucesso!")
             
             self.mostrar_lista()
@@ -193,7 +194,7 @@ class PedidoApp(ctk.CTk):
                 loading_label.destroy()
             except:
                 pass
-            self.main_frame.grid_rowconfigure(0, weight=1)
+            self.main_frame.grid_rowconfigure(1, weight=1)
             messagebox.showerror("Erro", f"Falha ao listar pedidos da ONR:\n{e}")
 
     # ================= Frame da Lista =================
@@ -322,10 +323,10 @@ class PedidoApp(ctk.CTk):
                 query += " AND IDStatus = ?"
                 params.append(status_filtro_id)
             if data_inicial_filtro:
-                query += " AND DataRemessa >= ?"
+                query += " AND date(DataRemessa) >= ?"
                 params.append(data_inicial_filtro)
             if data_final_filtro:
-                query += " AND DataRemessa <= ?"
+                query += " AND date(DataRemessa) <= ?"
                 params.append(data_final_filtro)
             
             cursor.execute(query, params)
@@ -412,7 +413,7 @@ class PedidoApp(ctk.CTk):
         status_opcoes = list(STATUS_MAP.keys())
         self.status_combo = ctk.CTkComboBox(
             linha1, values=status_opcoes,font=("Helvetica", 14), variable=self.status_var, width=190,
-            command=lambda _: self.carregar_pedidos_do_cache() if self.btn_listar_onr.winfo_ismapped() else self.carregar_pedidos_do_db()
+            command=lambda _: self.carregar_pedidos_do_cache() if self.pedidos_onr_cache else self.carregar_pedidos_do_db()
         )
         self.status_combo.pack(side="left", padx=5)
 
@@ -445,7 +446,7 @@ class PedidoApp(ctk.CTk):
         self.tree_detalhes.heading("Campo", text="Campo")
         self.tree_detalhes.heading("Valor", text="Valor")
         self.tree_detalhes.column("Campo", width=200, anchor="w")
-        self.tree_detalhes.column("Valor", width=200, anchor="w")
+        self.tree_detalhes.column("Valor", width=450, anchor="w") # Aumentado para melhor visualização
         self.tree_detalhes.grid(row=0, column=0, padx=10, pady=5, sticky="nsew")
 
         vsb_det = ttk.Scrollbar(frame, orient="vertical", command=self.tree_detalhes.yview)
@@ -473,20 +474,19 @@ class PedidoApp(ctk.CTk):
         """Exibe o frame da lista de pedidos carregados da API."""
         self.frame_detalhes.grid_forget()
         self.frame_filtros.grid(row=0, column=0, sticky="new", padx=10, pady=(10, 0))
-        self.frame_lista.grid(row=1, column=0, sticky="new", padx=10, pady=(0, 50))
+        self.frame_lista.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
         self.carregar_pedidos_do_cache()
     
     def mostrar_lista_db(self):
         """Exibe o frame da lista de pedidos salvos no banco de dados."""
         self.frame_detalhes.grid_forget()
         self.frame_filtros.grid(row=0, column=0, sticky="new", padx=10, pady=(10, 0))
-        self.frame_lista.grid(row=1, column=0, sticky="new", padx=10, pady=(0, 50))
+        self.frame_lista.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
         self.carregar_pedidos_do_db()
 
     def mostrar_detalhes(self):
         """
-        Exibe o frame de detalhes do pedido selecionado, mostrando apenas os campos
-        e valores especificados.
+        Exibe o frame de detalhes do pedido selecionado.
         """
         if not self.selected_pedido:
             messagebox.showerror("Erro", "Selecione um pedido primeiro.")
@@ -494,24 +494,14 @@ class PedidoApp(ctk.CTk):
 
         self.frame_lista.grid_forget()
         self.frame_filtros.grid_forget()
-        self.frame_detalhes.grid(row=0, column=0, sticky="nsew")
+        self.frame_detalhes.grid(row=0, column=0, rowspan=2, sticky="nsew")
 
         self.tree_detalhes.delete(*self.tree_detalhes.get_children())
         
-        campos_desejados = [
-            "Protocolo",
-            "Solicitante",
-            "Telefone",
-            "Documento",
-            "Vendedor",
-            "CPF/CNPJ do Vendedor",
-            "Comprador",
-            "CPF/CNPJ do Comprador"
-        ]
-
-        for campo in campos_desejados:
-            valor = self.selected_pedido.get(campo, "-PREENCHER-")
-            self.tree_detalhes.insert("", "end", values=(campo, valor))
+        # Exibe todos os campos disponíveis no pedido
+        for campo, valor in self.selected_pedido.items():
+            if valor: # Mostra apenas campos que têm valor
+                self.tree_detalhes.insert("", "end", values=(campo, valor))
 
         self.validar_campos()
 
@@ -525,7 +515,17 @@ class PedidoApp(ctk.CTk):
     def validar_campos(self):
         """Ativa ou desativa o botão de cadastrar baseado na seleção de um pedido."""
         if self.selected_pedido:
-            self.btn_cadastrar.configure(state="normal")
+            # Verifica se o pedido já está no banco de dados
+            conn = sqlite3.connect(DB_PATH)
+            cursor = conn.cursor()
+            cursor.execute("SELECT 1 FROM pedidos_onr WHERE IDContrato = ?", (self.selected_pedido.get("IDContrato"),))
+            existe = cursor.fetchone()
+            conn.close()
+            
+            if existe:
+                self.btn_cadastrar.configure(text="Já Cadastrado", state="disabled", fg_color="green")
+            else:
+                self.btn_cadastrar.configure(text="Cadastrar no sistema", state="normal", fg_color=("#3a7ebf", "#1f538d"))
         else:
             self.btn_cadastrar.configure(state="disabled")
 
@@ -534,11 +534,69 @@ class PedidoApp(ctk.CTk):
         Salva o pedido selecionado no banco de dados local.
         """
         if self.selected_pedido:
-            salvar_detalhes_pedido(self.selected_pedido)
-            messagebox.showinfo("Sucesso", f"Pedido {self.selected_pedido.get('Protocolo')} cadastrado com sucesso!")
-            self.listar_pedidos_onr_gui()
+            try:
+                salvar_detalhes_pedido(self.selected_pedido)
+                messagebox.showinfo("Sucesso", f"Pedido {self.selected_pedido.get('Protocolo')} cadastrado com sucesso!")
+                
+                # Remove o item cadastrado do cache e da Treeview
+                id_contrato_cadastrado = self.selected_pedido.get('IDContrato')
+                self.pedidos_onr_cache = [p for p in self.pedidos_onr_cache if p.get('IDContrato') != id_contrato_cadastrado]
+                
+                self.mostrar_lista() # Volta para a lista do cache (que agora não tem mais o item cadastrado)
+            except Exception as e:
+                messagebox.showerror("Erro", f"Falha ao cadastrar o pedido:\n{e}")
         else:
             messagebox.showerror("Erro", "Nenhum pedido selecionado para cadastro.")
+
+    def cadastrar_todos_pedidos(self):
+        """
+        Salva TODOS os pedidos do cache no banco de dados local.
+        """
+        if not self.pedidos_onr_cache:
+            messagebox.showinfo("Info", "Nenhum pedido na lista para cadastrar. Por favor, atualize a lista primeiro.")
+            return
+
+        # Confirmação do usuário
+        confirm = messagebox.askyesno(
+            "Confirmar Cadastro em Lote",
+            f"Você tem certeza que deseja cadastrar {len(self.pedidos_onr_cache)} pedidos no sistema?\n"
+            "Esta ação não pode ser desfeita."
+        )
+
+        if not confirm:
+            return
+
+        pedidos_cadastrados = 0
+        pedidos_falharam = []
+
+        for pedido in self.pedidos_onr_cache:
+            try:
+                # A função salvar_detalhes_pedido já deve ter a lógica para
+                # inserir ou ignorar se já existir.
+                salvar_detalhes_pedido(pedido)
+                pedidos_cadastrados += 1
+            except Exception as e:
+                # Guarda o protocolo do pedido que falhou e o erro
+                protocolo = pedido.get('Protocolo', 'N/A')
+                pedidos_falharam.append((protocolo, str(e)))
+
+        # Feedback para o usuário
+        if not pedidos_falharam:
+            messagebox.showinfo(
+                "Sucesso",
+                f"{pedidos_cadastrados} pedidos foram cadastrados com sucesso!"
+            )
+        else:
+            erros_str = "\n".join([f"- Protocolo {p}: {err}" for p, err in pedidos_falharam])
+            messagebox.showwarning(
+                "Cadastro Parcial",
+                f"{pedidos_cadastrados} de {len(self.pedidos_onr_cache)} pedidos foram cadastrados.\n\n"
+                f"Falhas:\n{erros_str}"
+            )
+
+        # Limpa o cache e atualiza a visualização para mostrar a lista do banco de dados.
+        self.pedidos_onr_cache = []
+        self.mostrar_lista_db()
 
 if __name__ == "__main__":
     app = PedidoApp()

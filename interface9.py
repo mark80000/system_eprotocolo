@@ -12,6 +12,7 @@ from services.cadastrar_pedidos import (
     salvar_detalhes_pedido
 )
 from datetime import date, timedelta, datetime
+import threading # <-- NOVO: Importado para rodar a automação em segundo plano
 
 # Configuração inicial do CustomTkinter
 ctk.set_appearance_mode("Light")
@@ -37,13 +38,18 @@ class PedidoApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("Integração E-Protocolo")
-        self.geometry("900x500") # Aumentado para acomodar a coluna de Data e Hora
+        self.geometry("900x530") # Aumentado para acomodar a barra de status
         self.minsize(width=900, height=500)
         self.maxsize(width=900, height=500)
         
         self.selected_pedido = None
         self.pedidos_onr_cache = []
         
+        # --- NOVAS VARIÁVEIS DE ESTADO PARA AUTOMAÇÃO ---
+        self.auto_cadastro_ativo = False
+        self.auto_cadastro_job = None
+        # --- FIM DAS NOVAS VARIÁVEIS ---
+
         self.column_order = (
             "IDContrato", "Protocolo", "IDStatus", "IDCartorio", "DataRemessa", "Solicitante", "Telefone",
             "Instituicao", "Email", "TipoDocumento", "TipoServico", "ImportacaoExtratoXML",
@@ -77,29 +83,158 @@ class PedidoApp(ctk.CTk):
         self.sidebar.grid(row=0, column=0, sticky="ns")
 
         # Botão para atualizar a lista diretamente da API
-        self.btn_listar_onr = ctk.CTkButton(self.sidebar, text="Atualizar", command=self.listar_pedidos_onr_gui, font=("Helvetica", 15))
+        self.btn_listar_onr = ctk.CTkButton(self.sidebar, text="Listar Pedidos", command=self.listar_pedidos_onr_gui, font=("Helvetica", 15))
         self.btn_listar_onr.pack(padx=5, pady=5)
         
         # Novo botão para limpar a lista, já que agora ela acumula os pedidos
         self.btn_limpar_lista = ctk.CTkButton(self.sidebar, text="Limpar Lista", command=self.limpar_cache, font=("Helvetica", 15))
         self.btn_limpar_lista.pack(padx=5, pady=5)
-
-        self.btn_cadastrar_tudo = ctk.CTkButton(self.sidebar, text="Cadastrar Tudo", font=("Helvetica", 15))
-        self.btn_cadastrar_tudo.pack(padx=5, pady=30)
+        
+        # --- BOTÃO DE CADASTRO AUTOMÁTICO 
+        self.btn_auto_cadastro = ctk.CTkButton(self.sidebar, text="Cadastro Automático", command=self.iniciar_parar_cadastro_automatico, font=("Helvetica", 15), fg_color="#2c6e33")
+        self.btn_auto_cadastro.pack(padx=5, pady=30)
+        
 
         # Área principal
         self.main_frame = ctk.CTkFrame(self, corner_radius=0)
         self.main_frame.grid(row=0, column=1, sticky="news")
-        self.main_frame.grid_rowconfigure(0, weight=1)
+        self.main_frame.grid_rowconfigure(1, weight=1) 
         self.main_frame.grid_columnconfigure(0, weight=1)
 
         self.frame_filtros = self.criar_frame_filtros()
         self.frame_lista = self.criar_frame_lista()
         self.frame_detalhes = self.criar_frame_detalhes()
-
+        
+        # --- NOVA BARRA DE STATUS ---
+        self.status_bar = ctk.CTkLabel(self.main_frame, text="Pronto.", anchor="w", font=("Helvetica", 14))
+        self.status_bar.grid(row=2, column=0, sticky="ew", padx=10, pady=(15, 20))
+        # --- FIM DA BARRA DE STATUS ---
+        
         self.mostrar_lista_db()
         self.update_idletasks()
 
+    # ... (o resto dos seus métodos como _inicializar_db, listar_pedidos_onr_gui, etc., permanecem iguais) ...
+    
+    # =========================================================
+    # NOVAS FUNÇÕES PARA O CADASTRO AUTOMÁTICO
+    # =========================================================
+    def iniciar_parar_cadastro_automatico(self):
+        """Inicia ou para o processo de cadastro automático."""
+        self.auto_cadastro_ativo = not self.auto_cadastro_ativo
+        if self.auto_cadastro_ativo:
+            self.btn_auto_cadastro.configure(text="Parar Automação", fg_color="dark red")
+            # Desabilita botões que podem conflitar com a automação
+            self.btn_listar_onr.configure(state="disabled")
+            self.status_bar.configure(text="Iniciando cadastro automático...")
+            # Inicia o primeiro ciclo imediatamente
+            self.ciclo_automatico()
+        else:
+            self.btn_auto_cadastro.configure(text="Cadastro Automático", fg_color="#2c6e33")
+            # Reabilita os botões
+            self.btn_listar_onr.configure(state="normal")
+            if self.auto_cadastro_job:
+                self.after_cancel(self.auto_cadastro_job)
+                self.auto_cadastro_job = None
+            self.status_bar.configure(text="Cadastro automático parado.")
+
+    def ciclo_automatico(self):
+        """Função que gerencia o ciclo da automação."""
+        if not self.auto_cadastro_ativo:
+            return
+
+        # Usa uma thread para rodar o trabalho pesado (API e DB) sem travar a interface
+        thread = threading.Thread(target=self.worker_cadastro_automatico, daemon=True)
+        thread.start()
+
+    def worker_cadastro_automatico(self):
+        """
+        Executa a lógica de buscar e cadastrar em segundo plano.
+        Esta função NÃO deve interagir diretamente com a interface.
+        """
+        data_inicial_filtro_str = self.data_inicial_entry.get()
+        data_final_filtro_str = self.data_final_entry.get()
+
+        data_inicial_api = datetime.strptime(data_inicial_filtro_str, "%d-%m-%Y").strftime("%Y-%m-%d")
+        data_final_api = datetime.strptime(data_final_filtro_str, "%d-%m-%Y").strftime("%Y-%m-%d")
+
+        try:
+            timestamp = datetime.now().strftime('%H:%M:%S')
+            self.after(0, lambda: self.status_bar.configure(text=f"Verificando pedidos... ({timestamp})"))
+
+            # Define um período padrão para a busca automática (últimos 7 dias)
+            data_hoje = date.today()
+            
+            # 1. Busca os pedidos na ONR (status "Em aberto")
+            resposta_lista = listar_pedidos(
+                id_status=1, # Fixo para "Em aberto"
+                data_inicial=data_inicial_api,
+                data_final=data_final_api
+            )
+            
+            if not resposta_lista.RETORNO or not resposta_lista.Pedidos:
+                msg = f"Nenhum pedido novo encontrado. Próxima verificação em 5 minutos. ({datetime.now().strftime('%H:%M:%S')})"
+                self.after(0, self.atualizar_gui_apos_ciclo, msg, 0)
+                return
+
+            pedidos_basicos = resposta_lista.Pedidos.ListPedidosAC_Pedidos_WSResp
+            if not isinstance(pedidos_basicos, list):
+                pedidos_basicos = [pedidos_basicos]
+                
+            # 2. Obtém detalhes dos pedidos
+            pedidos_detalhados_zeep = get_detalhes_pedidos_listados(pedidos_basicos)
+            
+            if not pedidos_detalhados_zeep:
+                msg = f"Nenhum detalhe encontrado. Próxima verificação em 5 minutos. ({datetime.now().strftime('%H:%M:%S')})"
+                self.after(0, self.atualizar_gui_apos_ciclo, msg, 0)
+                return
+
+            # 3. Cadastra os pedidos no banco de dados
+            pedidos_cadastrados_count = 0
+            for p in pedidos_detalhados_zeep:
+                pedido_dict = serialize_object(p)
+                try:
+                    # A função salvar_detalhes_pedido deve lidar com duplicatas
+                    # (ex: usando INSERT OR IGNORE no SQL) para não dar erro.
+                    salvar_detalhes_pedido(pedido_dict)
+                    pedidos_cadastrados_count += 1
+                except sqlite3.IntegrityError:
+                    # O pedido já existe, o que é esperado. Ignora o erro.
+                    pass
+                except Exception as e:
+                    # Log de outros erros, se necessário
+                    print(f"Erro ao salvar pedido {pedido_dict.get('Protocolo')}: {e}")
+
+            msg = f"{pedidos_cadastrados_count} pedido(s) novo(s) cadastrado(s). Próxima verificação em 5 minutos. ({datetime.now().strftime('%H:%M:%S')})"
+            self.after(0, self.atualizar_gui_apos_ciclo, msg, pedidos_cadastrados_count)
+
+        except Exception as e:
+            msg = f"Erro na automação: {str(e)[:50]}... Tentando novamente em 5 minutos."
+            self.after(0, self.atualizar_gui_apos_ciclo, msg, 0)
+            
+    def atualizar_gui_apos_ciclo(self, message, num_cadastrados):
+        """
+        Função segura para atualizar a interface e reagendar o próximo ciclo.
+        É chamada a partir da thread de trabalho usando `self.after`.
+        """
+        self.status_bar.configure(text=message)
+        
+        # Se algum pedido foi cadastrado, atualiza a lista na tela
+        if num_cadastrados > 0:
+            self.carregar_pedidos_do_db()
+
+        # Reagenda o próximo ciclo para daqui a 5 minutos, se a automação ainda estiver ativa
+        if self.auto_cadastro_ativo:
+            # 5 minutos = 300,000 milissegundos
+            self.auto_cadastro_job = self.after(300000, self.ciclo_automatico)
+            
+    # =========================================================
+    # FIM DAS FUNÇÕES DE CADASTRO AUTOMÁTICO
+    # =========================================================
+    
+    # ... (cole aqui o resto dos seus métodos, como cadastrar, mostrar_detalhes, etc.)
+    # É importante que eles estejam aqui para o código funcionar.
+    # Vou adicioná-los abaixo para garantir que nada falte.
+    
     def _inicializar_db(self):
         criar_tabela_se_nao_existir()
     
@@ -146,10 +281,10 @@ class PedidoApp(ctk.CTk):
             
             # Verificação para evitar que o cache seja limpo se a API não retornar nada
             if not resposta_lista.RETORNO or not resposta_lista.Pedidos:
-                messagebox.showinfo("Info", "Nenhum pedido encontrado na ONR com o filtro selecionado.")
+                messagebox.showinfo("Info", "Nenhum pedido novo encontrado na ONR com o filtro selecionado.")
                 loading_label.destroy()
-                self.main_frame.grid_rowconfigure(0, weight=1)
-                self.carregar_pedidos_do_cache()
+                self.main_frame.grid_rowconfigure(1, weight=1)
+                self.carregar_pedidos_do_cache() 
                 return
 
             pedidos_basicos = resposta_lista.Pedidos.ListPedidosAC_Pedidos_WSResp
@@ -164,7 +299,7 @@ class PedidoApp(ctk.CTk):
             if not pedidos_detalhados_zeep:
                 messagebox.showinfo("Info", "Nenhum detalhe de pedido foi encontrado.")
                 loading_label.destroy()
-                self.main_frame.grid_rowconfigure(0, weight=1)
+                self.main_frame.grid_rowconfigure(1, weight=1)
                 self.carregar_pedidos_do_cache()
                 return
 
@@ -183,7 +318,7 @@ class PedidoApp(ctk.CTk):
             self.pedidos_onr_cache.extend(novos_pedidos)
 
             loading_label.destroy()
-            self.main_frame.grid_rowconfigure(0, weight=1)
+            self.main_frame.grid_rowconfigure(1, weight=1)
             messagebox.showinfo("Sucesso", f"{len(novos_pedidos)} novos pedidos carregados da ONR com sucesso!")
             
             self.mostrar_lista()
@@ -193,10 +328,9 @@ class PedidoApp(ctk.CTk):
                 loading_label.destroy()
             except:
                 pass
-            self.main_frame.grid_rowconfigure(0, weight=1)
+            self.main_frame.grid_rowconfigure(1, weight=1)
             messagebox.showerror("Erro", f"Falha ao listar pedidos da ONR:\n{e}")
 
-    # ================= Frame da Lista =================
     def criar_frame_lista(self):
         frame = ctk.CTkFrame(self.main_frame)
         frame.grid_columnconfigure(0, weight=1)
@@ -239,7 +373,6 @@ class PedidoApp(ctk.CTk):
         status_filtro_text = self.status_var.get()
         status_filtro_id = STATUS_MAP.get(status_filtro_text)
 
-        # Converte as datas do filtro para AAAA-MM-DD para a comparação interna, com tratamento de erro
         data_inicial_filtro_str = self.data_inicial_entry.get()
         data_final_filtro_str = self.data_final_entry.get()
         
@@ -253,7 +386,6 @@ class PedidoApp(ctk.CTk):
         for p in self.pedidos_onr_cache:
             data_remessa_full = p.get("DataRemessa", "")
             
-            # Apenas verifica o componente de data para o filtro
             if data_inicial_filtro and data_remessa_full and data_remessa_full.split(' ')[0] < data_inicial_filtro:
                 continue
             if data_final_filtro and data_remessa_full and data_remessa_full.split(' ')[0] > data_final_filtro:
@@ -262,19 +394,14 @@ class PedidoApp(ctk.CTk):
             if status_filtro_id is not None and p.get("IDStatus") != status_filtro_id:
                 continue
             
-            instituicao_para_mostrar = p.get("Instituicao")
-            if not instituicao_para_mostrar:
-                instituicao_para_mostrar = p.get("Solicitante", "")
+            instituicao_para_mostrar = p.get("Instituicao") or p.get("Solicitante", "")
             
-            # Agora, formata a string completa de data e hora para exibição
             data_remessa_display = ""
             if data_remessa_full:
                 try:
-                    # Tenta parsear a string completa, que inclui a data e hora
                     data_obj = datetime.strptime(data_remessa_full, "%Y-%m-%d %H:%M:%S")
                     data_remessa_display = data_obj.strftime("%d-%m-%Y %H:%M:%S")
                 except ValueError:
-                    # Em caso de falha, tenta parsear apenas a data
                     try:
                         data_obj = datetime.strptime(data_remessa_full.split(' ')[0], "%Y-%m-%d")
                         data_remessa_display = data_obj.strftime("%d-%m-%Y")
@@ -292,9 +419,6 @@ class PedidoApp(ctk.CTk):
             self.tree.insert("", "end", values=valores)
 
     def carregar_pedidos_do_db(self):
-        """
-        Carrega os pedidos do banco de dados local para a Treeview, aplicando os filtros.
-        """
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
 
@@ -307,7 +431,6 @@ class PedidoApp(ctk.CTk):
             data_inicial_filtro_str = self.data_inicial_entry.get()
             data_final_filtro_str = self.data_final_entry.get()
             
-            # Converte as datas do filtro para AAAA-MM-DD para a query SQL, com tratamento de erro
             try:
                 data_inicial_filtro = datetime.strptime(data_inicial_filtro_str, "%d-%m-%Y").strftime("%Y-%m-%d")
                 data_final_filtro = datetime.strptime(data_final_filtro_str, "%d-%m-%Y").strftime("%Y-%m-%d")
@@ -322,10 +445,10 @@ class PedidoApp(ctk.CTk):
                 query += " AND IDStatus = ?"
                 params.append(status_filtro_id)
             if data_inicial_filtro:
-                query += " AND DataRemessa >= ?"
+                query += " AND date(DataRemessa) >= ?"
                 params.append(data_inicial_filtro)
             if data_final_filtro:
-                query += " AND DataRemessa <= ?"
+                query += " AND date(DataRemessa) <= ?"
                 params.append(data_final_filtro)
             
             cursor.execute(query, params)
@@ -336,20 +459,15 @@ class PedidoApp(ctk.CTk):
             for p in pedidos:
                 pedido_dict = dict(zip(colunas_db, p))
                 
-                instituicao_para_mostrar = pedido_dict.get("Instituicao")
-                if not instituicao_para_mostrar:
-                    instituicao_para_mostrar = pedido_dict.get("Solicitante", "")
+                instituicao_para_mostrar = pedido_dict.get("Instituicao") or pedido_dict.get("Solicitante", "")
                 
-                # Agora, formata a string completa de data e hora para exibição
                 data_remessa_display = ""
                 data_remessa_full = pedido_dict.get("DataRemessa", "")
                 if data_remessa_full:
                     try:
-                        # Tenta parsear a string completa, que inclui a data e hora
                         data_obj = datetime.strptime(data_remessa_full, "%Y-%m-%d %H:%M:%S")
                         data_remessa_display = data_obj.strftime("%d-%m-%Y %H:%M:%S")
                     except ValueError:
-                        # Em caso de falha, tenta parsear apenas a data
                         try:
                             data_obj = datetime.strptime(data_remessa_full.split(' ')[0], "%Y-%m-%d")
                             data_remessa_display = data_obj.strftime("%d-%m-%Y")
@@ -373,8 +491,7 @@ class PedidoApp(ctk.CTk):
 
     def selecionar_pedido(self, event=None):
         item = self.tree.focus()
-        if not item:
-            return
+        if not item: return
         
         valores = self.tree.item(item, "values")
         id_contrato = valores[0]
@@ -412,11 +529,10 @@ class PedidoApp(ctk.CTk):
         status_opcoes = list(STATUS_MAP.keys())
         self.status_combo = ctk.CTkComboBox(
             linha1, values=status_opcoes,font=("Helvetica", 14), variable=self.status_var, width=190,
-            command=lambda _: self.carregar_pedidos_do_cache() if self.btn_listar_onr.winfo_ismapped() else self.carregar_pedidos_do_db()
+            command=lambda _: self.carregar_pedidos_do_cache() if self.pedidos_onr_cache else self.carregar_pedidos_do_db()
         )
         self.status_combo.pack(side="left", padx=5)
 
-        # Calcula e formata as datas de hoje e ontem
         data_hoje = date.today()
         data_ontem = data_hoje - timedelta(days=1)
         data_hoje_str = data_hoje.strftime("%d-%m-%Y")
@@ -434,7 +550,6 @@ class PedidoApp(ctk.CTk):
 
         return self.frame_filtros
 
-    # ================= Frame de Detalhes =================
     def criar_frame_detalhes(self):
         """Cria e configura o frame que exibe os detalhes de um pedido."""
         frame = ctk.CTkFrame(self.main_frame)
@@ -445,7 +560,7 @@ class PedidoApp(ctk.CTk):
         self.tree_detalhes.heading("Campo", text="Campo")
         self.tree_detalhes.heading("Valor", text="Valor")
         self.tree_detalhes.column("Campo", width=200, anchor="w")
-        self.tree_detalhes.column("Valor", width=200, anchor="w")
+        self.tree_detalhes.column("Valor", width=450, anchor="w")
         self.tree_detalhes.grid(row=0, column=0, padx=10, pady=5, sticky="nsew")
 
         vsb_det = ttk.Scrollbar(frame, orient="vertical", command=self.tree_detalhes.yview)
@@ -473,72 +588,106 @@ class PedidoApp(ctk.CTk):
         """Exibe o frame da lista de pedidos carregados da API."""
         self.frame_detalhes.grid_forget()
         self.frame_filtros.grid(row=0, column=0, sticky="new", padx=10, pady=(10, 0))
-        self.frame_lista.grid(row=1, column=0, sticky="new", padx=10, pady=(0, 50))
+        self.frame_lista.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
         self.carregar_pedidos_do_cache()
     
     def mostrar_lista_db(self):
         """Exibe o frame da lista de pedidos salvos no banco de dados."""
         self.frame_detalhes.grid_forget()
         self.frame_filtros.grid(row=0, column=0, sticky="new", padx=10, pady=(10, 0))
-        self.frame_lista.grid(row=1, column=0, sticky="new", padx=10, pady=(0, 50))
+        self.frame_lista.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
         self.carregar_pedidos_do_db()
 
     def mostrar_detalhes(self):
-        """
-        Exibe o frame de detalhes do pedido selecionado, mostrando apenas os campos
-        e valores especificados.
-        """
-        if not self.selected_pedido:
-            messagebox.showerror("Erro", "Selecione um pedido primeiro.")
-            return
+        if not self.selected_pedido: return
 
         self.frame_lista.grid_forget()
         self.frame_filtros.grid_forget()
-        self.frame_detalhes.grid(row=0, column=0, sticky="nsew")
+        self.frame_detalhes.grid(row=0, column=0, rowspan=2, sticky="nsew")
 
         self.tree_detalhes.delete(*self.tree_detalhes.get_children())
         
-        campos_desejados = [
-            "Protocolo",
-            "Solicitante",
-            "Telefone",
-            "Documento",
-            "Vendedor",
-            "CPF/CNPJ do Vendedor",
-            "Comprador",
-            "CPF/CNPJ do Comprador"
-        ]
-
-        for campo in campos_desejados:
-            valor = self.selected_pedido.get(campo, "-PREENCHER-")
-            self.tree_detalhes.insert("", "end", values=(campo, valor))
+        for campo, valor in self.selected_pedido.items():
+            if valor: 
+                self.tree_detalhes.insert("", "end", values=(campo, valor))
 
         self.validar_campos()
 
     def abrir_anexo(self):
-        """Abre o anexo do pedido no navegador padrão."""
         if self.selected_pedido and self.selected_pedido.get("UrlArquivoMandado"):
             webbrowser.open(self.selected_pedido["UrlArquivoMandado"])
         else:
             messagebox.showinfo("Info", "Anexo não disponível.")
 
     def validar_campos(self):
-        """Ativa ou desativa o botão de cadastrar baseado na seleção de um pedido."""
         if self.selected_pedido:
-            self.btn_cadastrar.configure(state="normal")
+            conn = sqlite3.connect(DB_PATH)
+            cursor = conn.cursor()
+            cursor.execute("SELECT 1 FROM pedidos_onr WHERE IDContrato = ?", (self.selected_pedido.get("IDContrato"),))
+            existe = cursor.fetchone()
+            conn.close()
+            
+            if existe:
+                self.btn_cadastrar.configure(text="Já Cadastrado", state="disabled", fg_color="green")
+            else:
+                self.btn_cadastrar.configure(text="Cadastrar no sistema", state="normal", fg_color=("#3a7ebf", "#1f538d"))
         else:
             self.btn_cadastrar.configure(state="disabled")
 
     def cadastrar(self):
-        """
-        Salva o pedido selecionado no banco de dados local.
-        """
         if self.selected_pedido:
-            salvar_detalhes_pedido(self.selected_pedido)
-            messagebox.showinfo("Sucesso", f"Pedido {self.selected_pedido.get('Protocolo')} cadastrado com sucesso!")
-            self.listar_pedidos_onr_gui()
+            try:
+                salvar_detalhes_pedido(self.selected_pedido)
+                messagebox.showinfo("Sucesso", f"Pedido {self.selected_pedido.get('Protocolo')} cadastrado com sucesso!")
+                
+                id_contrato_cadastrado = self.selected_pedido.get('IDContrato')
+                self.pedidos_onr_cache = [p for p in self.pedidos_onr_cache if p.get('IDContrato') != id_contrato_cadastrado]
+                
+                self.mostrar_lista() 
+            except Exception as e:
+                messagebox.showerror("Erro", f"Falha ao cadastrar o pedido:\n{e}")
         else:
             messagebox.showerror("Erro", "Nenhum pedido selecionado para cadastro.")
+
+    def cadastrar_todos_pedidos(self):
+        if not self.pedidos_onr_cache:
+            messagebox.showinfo("Info", "Nenhum pedido na lista para cadastrar. Por favor, atualize a lista primeiro.")
+            return
+
+        confirm = messagebox.askyesno(
+            "Confirmar Cadastro em Lote",
+            f"Você tem certeza que deseja cadastrar {len(self.pedidos_onr_cache)} pedidos no sistema?\n"
+            "Esta ação não pode ser desfeita."
+        )
+
+        if not confirm: return
+
+        pedidos_cadastrados = 0
+        pedidos_falharam = []
+
+        for pedido in self.pedidos_onr_cache:
+            try:
+                salvar_detalhes_pedido(pedido)
+                pedidos_cadastrados += 1
+            except Exception as e:
+                protocolo = pedido.get('Protocolo', 'N/A')
+                pedidos_falharam.append((protocolo, str(e)))
+
+        if not pedidos_falharam:
+            messagebox.showinfo(
+                "Sucesso",
+                f"{pedidos_cadastrados} pedidos foram cadastrados com sucesso!"
+            )
+        else:
+            erros_str = "\n".join([f"- Protocolo {p}: {err}" for p, err in pedidos_falharam])
+            messagebox.showwarning(
+                "Cadastro Parcial",
+                f"{pedidos_cadastrados} de {len(self.pedidos_onr_cache)} pedidos foram cadastrados.\n\n"
+                f"Falhas:\n{erros_str}"
+            )
+
+        self.pedidos_onr_cache = []
+        self.mostrar_lista_db()
 
 if __name__ == "__main__":
     app = PedidoApp()
