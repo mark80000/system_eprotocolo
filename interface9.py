@@ -52,18 +52,7 @@ class PedidoApp(ctk.CTk):
 
         self.column_order = (
             "IDContrato", "Protocolo", "IDStatus", "IDCartorio", "DataRemessa", "Solicitante", "Telefone",
-            "Instituicao", "Email", "TipoDocumento", "TipoServico", "ImportacaoExtratoXML",
-            "ApresentanteNome", "ApresentanteCPFCNPJ", "ApresentanteEmail", "ApresentanteVia",
-            "ApresentanteEndereco", "ApresentanteNumero", "ApresentanteComplemento", "ApresentanteBairro",
-            "ApresentanteCidade", "ApresentanteEstado", "ApresentanteCEP", "ApresentanteDDD",
-            "ApresentanteTelefone", "PrenotacaoDataInclusao", "PrenotacaoDataVencimento", 
-            "PrenotacaoDataReenvio", "ValorServico", "DataResposta", "Resposta", "AceiteNome", 
-            "AceiteData", "TipoCobranca", "CertidaoInteiroTeor", "TipoIsencao", "NrProcesso", 
-            "FolhasProcesso", "DataGratuidade", "FundamentoLegal", "UrlArquivoGratuidade", 
-            "ProtocoloOrigem", "TipoConstricao", "ProcessoConstricao", "VaraConstricao", 
-            "UsuarioConstricao", "NumeroProcessoConstricao", "NaturezaProcessoConstricao", 
-            "ValorDividaConstricao", "DataAutoTermoConstricao", "UrlArquivoMandado", 
-            "NomeComprador", "CPFCNPJComprador", "NomeVendedor", "CPFCNPJVendedor"
+            "TipoDocumento","NomeComprador", "CPFCNPJComprador", "NomeVendedor", "CPFCNPJVendedor"
         )
         
         # Inicializa o banco de dados antes de qualquer outra operação
