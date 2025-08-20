@@ -100,7 +100,7 @@ class PedidoApp(ctk.CTk):
     def iniciar_parar_cadastro_automatico(self):
         self.auto_cadastro_ativo = not self.auto_cadastro_ativo
         if self.auto_cadastro_ativo:
-            self.btn_auto_cadastro.configure(text="Parar Automação", fg_color="dark red")
+            self.btn_auto_cadastro.configure(text="Desativar Cadastro\nAutomático", fg_color="dark red")
             self.btn_listar_onr.configure(state="disabled")
             self.status_bar.configure(text="Iniciando cadastro automático...")
             self.ciclo_automatico()
@@ -158,7 +158,6 @@ class PedidoApp(ctk.CTk):
                 pedido_dict = serialize_object(p)
                 try:
                     foi_salvo = salvar_detalhes_pedido(pedido_dict)
-                    print(foi_salvo)
                     if foi_salvo:
                         pedidos_cadastrados_count += 1
                 except sqlite3.IntegrityError:
@@ -167,7 +166,7 @@ class PedidoApp(ctk.CTk):
                     print(f"Erro ao salvar pedido {pedido_dict.get('Protocolo')}: {e}")
 
             if pedidos_cadastrados_count > 0:
-                msg = f"{pedidos_cadastrados_count} pedido(s) novo(s) cadastrado(s) às {timestamp}."
+                msg = f"{pedidos_cadastrados_count} pedido(s) novo(s) cadastrado(s) às ({timestamp}). Verificando novamente em 5 min."
             else:
                 msg = f"Nenhum pedido novo encontrado às {timestamp}. Verificando novamente em 5 min."
             
@@ -182,7 +181,8 @@ class PedidoApp(ctk.CTk):
         self.status_bar.configure(text=message)
         
         if num_cadastrados > 0:
-            self.carregar_pedidos_do_db()
+            self.listar_pedidos_onr_gui()
+            self.carregar_pedidos_do_cache()
 
         if self.auto_cadastro_ativo:
             self.auto_cadastro_job = self.after(300000, self.ciclo_automatico)
@@ -205,6 +205,7 @@ class PedidoApp(ctk.CTk):
         # Mapeia os nomes que você quer exibir para as chaves reais no dicionário do pedido
         campos_desejados = {
             "Protocolo": "Protocolo",
+            "Data Pedido": "DataRemessa",
             "Solicitante": "Solicitante",
             "Telefone": "Telefone",
             "Documento": "TipoDocumento", # A API chama de "TipoDocumento"
@@ -287,7 +288,7 @@ class PedidoApp(ctk.CTk):
             self.pedidos_onr_cache.extend(novos_pedidos)
 
             loading_label.destroy()
-            messagebox.showinfo("Sucesso", f"{len(novos_pedidos)} novos pedidos carregados para a lista temporária.")
+            #messagebox.showinfo("Sucesso", f"{len(novos_pedidos)} novos pedidos carregados para a lista temporária.")
             
             self.mostrar_lista()
 
@@ -499,10 +500,10 @@ class PedidoApp(ctk.CTk):
                 salvar_detalhes_pedido(self.selected_pedido)
                 messagebox.showinfo("Sucesso", f"Pedido {self.selected_pedido.get('Protocolo')} cadastrado!")
                 
-                id_cadastrado = self.selected_pedido.get('IDContrato')
-                self.pedidos_onr_cache = [p for p in self.pedidos_onr_cache if p.get('IDContrato') != id_cadastrado]
-                
-                self.mostrar_lista() 
+                #id_cadastrado = self.selected_pedido.get('IDContrato')
+                #self.pedidos_onr_cache = [p for p in self.pedidos_onr_cache if p.get('IDContrato') != id_cadastrado]
+                self.mostrar_lista()
+                 
             except Exception as e:
                 messagebox.showerror("Erro", f"Falha ao cadastrar o pedido:\n{e}")
 
