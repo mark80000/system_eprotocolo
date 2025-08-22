@@ -29,6 +29,19 @@ def preencher_vazio(valor):
         return "*PREENCHER*"
     return valor
 
+meses = {
+    "01": "JANEIRO", "02": "FEVEREIRO", "03": "MARÇO", "04": "ABRIL",
+    "05": "MAIO", "06": "JUNHO", "07": "JULHO", "08": "AGOSTO",
+    "09": "SETEMBRO", "10": "OUTUBRO", "11": "NOVEMBRO", "12": "DEZEMBRO"
+}
+
+hoje = datetime.now()
+dia = hoje.strftime("%d")
+mes = meses[hoje.strftime("%m")]
+ano = hoje.strftime("%Y")
+
+data_extenso = f"{dia} DE {mes} DE {ano}"
+
 def salvar_detalhes_pedido(d):
     conn = None
     try:
@@ -68,7 +81,7 @@ def salvar_detalhes_pedido(d):
                 "numero_protocolo": proximo_protocolo,
                 "titulo": "REGISTRO\n" + d.get("Protocolo"),
                 "momento_cadastro": preencher_vazio(d.get("DataRemessa")),
-                "partes": preencher_vazio(d.get("Solicitante")),
+                "partes": preencher_vazio(d.get("Solicitante").upper()),
                 "telefone": preencher_vazio(d.get("Telefone")),
                 "natureza_titulo": preencher_vazio(d.get("TipoDocumento", "")[:25]),
                 "nome_outorgante": preencher_vazio(imovel_transacao.get("NomeComprador")),
@@ -81,9 +94,16 @@ def salvar_detalhes_pedido(d):
                 "hora": hora_atual,
                 "tipo_entrada": "Registro",
                 "doc_parte": "NAO INFORMADO",
-                "motivacao": "REGISTRAR IMOVEL",
+                "motivacao": "REGISTRAR IMÓVEL",
                 "para_exame": "NAO",
-                "arquivodigital": "SIM"
+                "arquivodigital": "SIM",
+                "data": data_extenso,
+                "id_contrato": d.get("IDContrato"),
+                "arquivodigital": "SIM",
+                "alertaentregue": "NAO",
+                "alertaconcluido": "NAO",
+                "situacao": "EM EXAME",
+                "funcionario": "INTEGRAÇÃO"
             }
 
             # Etapa 3: Inserir usando a cláusula 'ON CONFLICT' do PostgreSQL
@@ -91,7 +111,7 @@ def salvar_detalhes_pedido(d):
             placeholders = ", ".join(["%s"] * len(pedido_data))
             
             # ON CONFLICT garante que não haverá erro se o Protocolo já existir
-            query = f'INSERT INTO registre.entradas ({colunas}) VALUES ({placeholders}) ON CONFLICT ("entrada") DO NOTHING'
+            query = f'INSERT INTO registre.entradas ({colunas}) VALUES ({placeholders}) ON CONFLICT ("id_contrato") DO NOTHING'
             
             cursor.execute(query, tuple(pedido_data.values()))
             

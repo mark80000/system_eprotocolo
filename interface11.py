@@ -45,9 +45,9 @@ class PedidoApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("Integração E-Protocolo")
-        self.geometry("900x530")
-        self.minsize(width=900, height=530)
-        self.maxsize(width=900, height=530)
+        self.geometry("900x500")
+        self.minsize(width=900, height=500)
+        self.maxsize(width=900, height=500)
         
         self.selected_pedido = None
         self.pedidos_onr_cache = []
@@ -62,17 +62,17 @@ class PedidoApp(ctk.CTk):
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
-        self.sidebar = ctk.CTkFrame(self, width=50, corner_radius=1)
+        self.sidebar = ctk.CTkFrame(self, width=70, corner_radius=1)
         self.sidebar.grid(row=0, column=0, sticky="ns")
 
-        self.btn_listar_onr = ctk.CTkButton(self.sidebar, text="Buscar na ONR", command=self.listar_pedidos_onr_gui, font=("Helvetica", 15))
-        self.btn_listar_onr.pack(padx=10, pady=10)
+        self.btn_listar_onr = ctk.CTkButton(self.sidebar, text="Buscar na ONR", command=self.listar_pedidos_onr_gui, font=("Helvetica", 15), width=50)
+        self.btn_listar_onr.pack(padx=5, pady=10)
         
-        self.btn_limpar_lista = ctk.CTkButton(self.sidebar, text="Limpar Lista", command=self.limpar_cache, font=("Helvetica", 15))
-        self.btn_limpar_lista.pack(padx=10, pady=10)
+        self.btn_limpar_lista = ctk.CTkButton(self.sidebar, text="Limpar Lista", command=self.limpar_cache, font=("Helvetica", 15), width=60)
+        self.btn_limpar_lista.pack(padx=5, pady=5, fill="x")
         
-        self.btn_auto_cadastro = ctk.CTkButton(self.sidebar, text="Cadastro Automático", command=self.iniciar_parar_cadastro_automatico, font=("Helvetica", 15), fg_color="#2c6e33")
-        self.btn_auto_cadastro.pack(padx=10, pady=(30, 10))
+        self.btn_auto_cadastro = ctk.CTkButton(self.sidebar, text="Ativar Cadastro\nAutomático", command=self.iniciar_parar_cadastro_automatico, font=("Helvetica", 15), fg_color="#2c6e33", width=50)
+        self.btn_auto_cadastro.pack(padx=5, pady=(30, 5))
 
         self.main_frame = ctk.CTkFrame(self, corner_radius=0)
         self.main_frame.grid(row=0, column=1, sticky="nsew")
@@ -83,7 +83,7 @@ class PedidoApp(ctk.CTk):
         self.frame_lista = self.criar_frame_lista()
         self.frame_detalhes = self.criar_frame_detalhes()
         
-        self.status_bar = ctk.CTkLabel(self, text="Pronto.", anchor="w", font=("Helvetica", 12))
+        self.status_bar = ctk.CTkLabel(self, text="Pronto.", anchor="w", font=("Helvetica", 14))
         self.status_bar.grid(row=1, column=1, sticky="ew", padx=10, pady=(5, 5))
         
         self.mostrar_lista() # Alterado para mostrar a lista do DB por padrão
@@ -97,12 +97,12 @@ class PedidoApp(ctk.CTk):
     def iniciar_parar_cadastro_automatico(self):
         self.auto_cadastro_ativo = not self.auto_cadastro_ativo
         if self.auto_cadastro_ativo:
-            self.btn_auto_cadastro.configure(text="Parar Automação", fg_color="dark red")
+            self.btn_auto_cadastro.configure(text="Desativar Cadastro\nAutomático", fg_color="dark red")
             self.btn_listar_onr.configure(state="disabled")
             self.status_bar.configure(text="Iniciando cadastro automático...")
             self.ciclo_automatico()
         else:
-            self.btn_auto_cadastro.configure(text="Cadastro Automático", fg_color="#2c6e33")
+            self.btn_auto_cadastro.configure(text="Ativar Cadastro\nAutomático", fg_color="#2c6e33")
             self.btn_listar_onr.configure(state="normal")
             if self.auto_cadastro_job:
                 self.after_cancel(self.auto_cadastro_job)
@@ -152,9 +152,10 @@ class PedidoApp(ctk.CTk):
                     print(f"Erro de banco de dados ao salvar pedido: {e}")
             
             if pedidos_cadastrados_count > 0:
-                msg = f"{pedidos_cadastrados_count} pedido(s) novo(s) cadastrado(s) às {timestamp}."
+                self.listar_pedidos_onr_gui()
+                msg = f"{pedidos_cadastrados_count} pedido(s) novo(s) cadastrado(s) às {timestamp}. Verificando novamente em 5 min..."
             else:
-                msg = f"Nenhum pedido novo encontrado às {timestamp}. Verificando novamente em 5 min."
+                msg = f"Nenhum pedido novo encontrado às {timestamp}. Verificando novamente em 5 min..."
             self.after(0, self.atualizar_gui_apos_ciclo, msg, pedidos_cadastrados_count)
 
         except Exception as e:
@@ -251,13 +252,13 @@ class PedidoApp(ctk.CTk):
         self.mostrar_detalhes()
 
     def validar_campos(self):
-        id_contrato = self.selected_pedido.get("Protocolo") or self.selected_pedido.get("protocolo")
+        id_contrato = self.selected_pedido.get("IDContrato") or self.selected_pedido.get("idcontrato")
         conn = None
         try:
             conn = psycopg2.connect(**DB_CONFIG)
             cursor = conn.cursor()
             # Placeholders mudam de '?' para '%s'
-            cursor.execute("SELECT 1 FROM registre.entradas WHERE \"entrada\" = %s", (id_contrato,))
+            cursor.execute("SELECT 1 FROM registre.entradas WHERE \"id_contrato\" = %s", (id_contrato,))
             existe = cursor.fetchone()
         except psycopg2.Error as e:
             messagebox.showerror("Erro de Banco de Dados", f"Falha ao validar pedido:\n{e}")
@@ -381,7 +382,7 @@ class PedidoApp(ctk.CTk):
             return frame
         
     def criar_tabela(self, parent):
-            cols = {"Status": 150, "Protocolo": 100, "Instituição": 250, "Tipo Documento": 200, "Data Pedido": 150}
+            cols = {"Status": 150, "Protocolo": 120, "Instituição": 250, "Tipo Documento": 200, "Data Pedido": 150}
             tree = ttk.Treeview(parent, columns=list(cols.keys()), show="headings")
             
             for col, width in cols.items():
